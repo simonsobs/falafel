@@ -66,17 +66,19 @@ def qe_tt_simple(Xmap,Ymap=None,lcltt=None,ucltt=None, \
     if mlmax is None:
         mlmax = 2*max(lmax,lmax_y)
 
+    shape,wcs = Xmap.shape,Xmap.wcs
     iXalm = cs.map2alm(Xmap,lmax=mlmax)
+    del Xmap
     if Ymap is None:
         iYalm = iXalm.copy()
     else:
         iYalm = cs.map2alm(Ymap,lmax=mlmax)
-        
+    del Ymap
+
     Xalm = isotropic_filter_T(alm=iXalm,lcltt=lcltt,ucltt=ucltt,
                               nltt_deconvolved=nltt_deconvolved,tcltt=tcltt,lmin=lmin,lmax=lmax,gradient=True)
     Yalm = isotropic_filter_T(alm=iYalm,lcltt=lcltt,ucltt=ucltt,
                               nltt_deconvolved=nltt_deconvolved_y,tcltt=tcltt_y,lmin=lmin_y,lmax=lmax_y,gradient=False)
-    shape,wcs = Xmap.shape,Xmap.wcs
     return qe_tt(shape,wcs,Xalm,Yalm,lmax=mlmax,do_curl=do_curl)
     
 def qe_tt(shape,wcs,Xalm,Yalm,do_curl=False,lmax=None):
@@ -84,33 +86,51 @@ def qe_tt(shape,wcs,Xalm,Yalm,do_curl=False,lmax=None):
     Does -div(grad(wX)*wY) where wX_alm and wY_alm are provided as appropriately Wiener filtered alms.
     Does not normalize the estimator.
     """
-    
+
+    # Get gradient and high-pass map in real space
     gradT = gradient_T_map(shape,wcs,Xalm)
     highT = enmap.zeros(shape[-2:],wcs)
     highT = cs.alm2map(Yalm,highT)
 
+    # Form real-space products of gradient and high-pass
     px = gradT[0] * highT
     py = gradT[1] * highT
+
+    del gradT
+    del highT
     
+    # alms of products for divergence
     alm_px = cs.map2alm(px,lmax=lmax)
     alm_py = cs.map2alm(py,lmax=lmax)
     
+    del px
+    del py
+
+    # divergence from alms
     dpx = enmap.zeros((2,)+shape[-2:],wcs)
     dpx = cs.alm2map(alm_px,dpx,deriv=True)
-    dpxdx = dpx[0].copy()
-    if do_curl: dpxdy = dpx[1].copy()
+    del alm_px
+    dpxdx = dpx[0]
+    if do_curl: dpxdy = dpx[1]
     dpy = enmap.zeros((2,)+shape[-2:],wcs)
     dpy = cs.alm2map(alm_py,dpy,deriv=True)
-    if do_curl: dpydx = dpy[0].copy()
-    dpydy = dpy[1].copy()
+    del alm_py
+    if do_curl: dpydx = dpy[0]
+    dpydy = dpy[1]
 
+    # unnormalized kappa from divergence
     kappa = dpxdx + dpydy
     alm_kappa = -cs.map2alm(kappa,lmax=lmax)
+    del kappa
+
     if do_curl:
         curl = dpydx - dpxdy
+        del dpxdx,dpydy,dpydx,dpxdy,dpx,dpy
         alm_curl = -cs.map2alm(curl,lmax=lmax)
+        del curl
         return alm_kappa,alm_curl
     else:
+        del dpxdx,dpydy,dpx,dpy
         return alm_kappa
     
 
