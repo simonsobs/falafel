@@ -4,9 +4,11 @@ import numpy as np
 import healpy as hp # needed only for isotropic filtering and alm -> cl, need to make it healpy independent
 from orphics import io,cosmology,lensing,maps,stats,mpi
 from falafel import qe
+import os,sys
 
-lmax = 2000 # cmb ellmax
-Nsims = 10
+
+lmax = int(sys.argv[1]) # cmb ellmax
+Nsims = int(sys.argv[2])
 
 
 comm = mpi.MPI.COMM_WORLD
@@ -45,7 +47,8 @@ shape,wcs = enmap.fullsky_geometry(res=np.deg2rad(res/60.),proj="car")
 sim_location = "/global/cscratch1/sd/engelen/simsS1516_v0.3/data/"
 ksim_location = "/global/cscratch1/sd/dwhan89/shared/act/simsS1516_v0.3/data/"
 
-bin_edges = np.logspace(np.log10(2),np.log10(mlmax),40)
+#bin_edges = np.logspace(np.log10(2),np.log10(mlmax),40)
+bin_edges = np.linspace(2,mlmax,200)
 binner = stats.bin1D(bin_edges)
 
 mstats = stats.Stats(comm)
@@ -129,8 +132,8 @@ if rank==0:
     pl.add(lpls,lpal*(lpls*(lpls+1.))**2./4.,ls="-.")
     pl.done(io.dout_dir+"fullsky_qe_result_%d.png" % lmax)
 
-    pl = io.Plotter(xscale='log')
-    pl.add(cents,diff,yerr=ediff,ls="-",marker="o")
+    pl = io.Plotter()
+    pl.add_err(cents,diff,yerr=ediff,ls="-",marker="o")
     pl.hline()
-    pl._ax.set_ylim(-0.1,0.1)
+    pl._ax.set_ylim(-0.03,0.03)
     pl.done(io.dout_dir+"fullsky_qe_result_diff_%d.png" % lmax)
