@@ -78,7 +78,8 @@ def qe_tt_simple(Xmap,Ymap=None,lcltt=None,ucltt=None, \
     if lmax_y is None: lmax_y = lmax
 
     # lmax at which harmonic operations are performed
-    if mlmax is None: mlmax = 2*max(lmax,lmax_y)
+    if mlmax is None: mlmax = max(lmax,lmax_y) + 250
+    # if mlmax is None: mlmax = 2*max(lmax,lmax_y)
 
     # if healpix, then calculate intermediate CAR geometry
     if healpix:

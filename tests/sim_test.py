@@ -21,7 +21,8 @@ my_tasks = each_tasks[rank]
 
 
 res = 1.0 # resolution in arcminutes
-mlmax = 2*lmax # lmax used for harmonic transforms
+mlmax = lmax + 250 # lmax used for harmonic transforms
+# mlmax = 2*lmax # lmax used for harmonic transforms
 
 
 
@@ -44,11 +45,15 @@ dh_als = np.nan_to_num(dh_nls * 2. / lpls /(lpls+1))
 Al = dh_als
 
 shape,wcs = enmap.fullsky_geometry(res=np.deg2rad(res/60.),proj="car")
-sim_location = "/global/cscratch1/sd/engelen/simsS1516_v0.3/data/"
-ksim_location = "/global/cscratch1/sd/dwhan89/shared/act/simsS1516_v0.3/data/"
+#sim_location = "/global/cscratch1/sd/engelen/simsS1516_v0.3/data/"
+#ksim_location = "/global/cscratch1/sd/dwhan89/shared/act/simsS1516_v0.3/data/"
 
-#bin_edges = np.logspace(np.log10(2),np.log10(mlmax),40)
-bin_edges = np.linspace(2,mlmax,200)
+sim_location = "/gpfs01/astro/workarea/msyriac/data/sims/alex/v0.3/"
+ksim_location = "/gpfs01/astro/workarea/msyriac/data/sims/alex/v0.3/"
+
+
+#bin_edges = np.logspace(np.log10(2),np.log10(lmax),40)
+bin_edges = np.linspace(2,lmax,300)
 binner = stats.bin1D(bin_edges)
 
 mstats = stats.Stats(comm)
@@ -61,7 +66,8 @@ for task in my_tasks:
 
     sindex = str(sim_index).zfill(5)
     if rank==0: print("Loading lensed map...")
-    Xmap = enmap.read_map(sim_location+"cmb_set00_%s/fullskyLensedMapUnaberrated_T_%s.fits" % (sindex,sindex))
+    #Xmap = enmap.read_map(sim_location+"cmb_set00_%s/fullskyLensedMapUnaberrated_T_%s.fits" % (sindex,sindex))
+    Xmap = enmap.read_map(sim_location+"fullskyLensedMapUnaberrated_T_%s.fits" % (sindex))
     Xmap.wcs = wcs
     assert Xmap.shape==shape
 
@@ -74,7 +80,8 @@ for task in my_tasks:
     del Xmap
 
     # alms of input kappa
-    ikappa = enmap.read_map(ksim_location+"phi_%s/kappaMap_%s.fits" % (sindex,sindex))
+    #ikappa = enmap.read_map(ksim_location+"phi_%s/kappaMap_%s.fits" % (sindex,sindex))
+    ikappa = enmap.read_map(ksim_location+"kappaMap_%s.fits" % (sindex))
     ikappa.wcs = wcs
     assert ikappa.shape==shape
     ik_alm = cs.map2alm(ikappa,lmax=mlmax).astype(np.complex128)
@@ -136,4 +143,5 @@ if rank==0:
     pl.add_err(cents,diff,yerr=ediff,ls="-",marker="o")
     pl.hline()
     pl._ax.set_ylim(-0.03,0.03)
+    pl._ax.set_xlim(0,lmax)
     pl.done(io.dout_dir+"fullsky_qe_result_diff_%d.png" % lmax)
