@@ -21,7 +21,7 @@ my_tasks = each_tasks[rank]
 
 
 res = 1.0 # resolution in arcminutes
-mlmax = lmax + 250 # lmax used for harmonic transforms
+mlmax = 2*lmax #+ 250 # lmax used for harmonic transforms
 # mlmax = 2*lmax # lmax used for harmonic transforms
 
 
@@ -52,8 +52,8 @@ sim_location = "/gpfs01/astro/workarea/msyriac/data/sims/alex/v0.3/"
 ksim_location = "/gpfs01/astro/workarea/msyriac/data/sims/alex/v0.3/"
 
 
-#bin_edges = np.logspace(np.log10(2),np.log10(lmax),40)
-bin_edges = np.linspace(2,lmax,300)
+bin_edges = np.logspace(np.log10(2),np.log10(lmax),100)
+#bin_edges = np.linspace(2,lmax,300)
 binner = stats.bin1D(bin_edges)
 
 mstats = stats.Stats(comm)
@@ -75,8 +75,7 @@ for task in my_tasks:
     ### DO FULL SKY RECONSTRUCTION
     if rank==0: print("Calculating unnormalized full-sky kappa...")
     lcltt = theory.lCl('TT',range(lmax))
-    with bench.show("reconstruction"):
-        ukappa_alm = qe.qe_tt_simple(Xmap,lcltt=lcltt,nltt_deconvolved=0.,lmin=2,lmax=lmax)
+    ukappa_alm = qe.qe_tt_simple(Xmap,lcltt=lcltt,nltt_deconvolved=0.,lmin=2,lmax=lmax)
     del Xmap
 
     # alms of input kappa
@@ -110,8 +109,8 @@ for task in my_tasks:
 
 
     mstats.add_to_stats("ri",bri)
-    mstats.add_to_stats("rr",bri)
-    mstats.add_to_stats("ii",bri)
+    mstats.add_to_stats("rr",brr)
+    mstats.add_to_stats("ii",bii)
     mstats.add_to_stats("diff",(bri-bii)/bii)
 
     if rank==0: print ("Rank 0 done with task ", task+1, " / " , len(my_tasks))
@@ -133,10 +132,12 @@ if rank==0:
     # plot
     pl = io.Plotter(yscale='log',xscale='log')
     pl.add(ells,theory.gCl('kk',ells),lw=3,color='k')
-    pl.add_err(cents,bri,yerr=ebri,ls="none",marker="o")
-    pl.add_err(cents,brr,yerr=ebrr,ls="none",marker="o")
-    pl.add_err(cents,bii,yerr=ebii,ls="none",marker="x")
+    pl.add_err(cents,bri,yerr=ebri,ls="none",marker="o",label='rxi')
+    pl.add_err(cents,brr,yerr=ebrr,ls="none",marker="o",label='rxr')
+    pl.add_err(cents,bii,yerr=ebii,ls="none",marker="x",label='ixi')
+    pl.add(lpls,(lpal*(lpls*(lpls+1.))**2./4.)+theory.gCl('kk',lpls),ls="--")
     pl.add(lpls,lpal*(lpls*(lpls+1.))**2./4.,ls="-.")
+    pl.legend()
     pl.done(io.dout_dir+"fullsky_qe_result_%d.png" % lmax)
 
     pl = io.Plotter()
@@ -145,3 +146,12 @@ if rank==0:
     pl._ax.set_ylim(-0.03,0.03)
     pl._ax.set_xlim(0,lmax)
     pl.done(io.dout_dir+"fullsky_qe_result_diff_%d.png" % lmax)
+
+
+    pl = io.Plotter(xscale='log')
+    pl.add_err(cents,diff,yerr=ediff,ls="-",marker="o")
+    pl.hline()
+    pl._ax.set_ylim(-0.2,0.2)
+    pl._ax.set_xlim(0,lmax)
+    pl.done(io.dout_dir+"fullsky_qe_result_diff_%d_log.png" % lmax)
+    

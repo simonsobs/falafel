@@ -5,9 +5,9 @@ import healpy as hp # needed only for isotropic filtering and alm -> cl, need to
 from orphics import io,cosmology,lensing,maps,stats
 from falafel import qe
 
-use_saved = True
-res = 1.0 # resolution in arcminutes
-cache = True
+use_saved = False
+res = 1.5 # resolution in arcminutes
+cache = False
 
 lmax = 2000 # cmb ellmax
 mlmax = 2*lmax # lmax used for harmonic transforms
@@ -55,7 +55,7 @@ binner = stats.bin2D(qest.N.modLMap,bin_edges)
 cents,albinned = binner.bin(qest.AL['TT'])
 Al = maps.interp(cents,albinned)(ells)
 Nl = maps.interp(ls,nlkks['TT'])(ells)
-lpls,lpal = np.loadtxt("nls.txt",unpack=True)
+lpls,lpal = np.loadtxt("data/nls_2000.txt",unpack=True)
 pl = io.Plotter(yscale='log',xscale='log')
 pl.add(ells,theory.gCl('kk',ells),lw=3,color='k')
 pl.add(ells,Nl,ls="--")
