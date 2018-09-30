@@ -93,23 +93,24 @@ for task in my_tasks:
     ### DO FULL SKY RECONSTRUCTION
     if rank==0: print("Calculating unnormalized full-sky kappa...")
     lcltt = theory.lCl('TT',range(lmax))
-    ukappa_alm = qe.qe_tt_simple(Xmap,lcltt=lcltt,nltt_deconvolved=0.,lmin=2,lmax=lmax)
+    ukappa_alm = qe.qe_tt_simple(Xmap,lcltt=lcltt,nltt_deconvolved=0.,lmin=2,lmax=lmax,mlmax=mlmax)
+    print(ukappa_alm.shape)
     # ukappa_alm = qe.qe_tt_simple(Xmap,lcltt=lcltt,nltt_deconvolved=0.,lmin=2,lmax=1000)  # !!!!!
     del Xmap
     kappa_alm = hp.almxfl(ukappa_alm,Al).astype(np.complex128)
     #del ukappa_alm
-    if task==0:
-        ls = np.arange(lmax)
-        fls = np.ones(ls.size)
-        fls[ls>100] = 0
-        rkappa = enmap.zeros(shape[-2:],wcs)
-        rkappa = cs.alm2map(hp.almxfl(kappa_alm,fls),rkappa,method="cyl")
-        io.plot_img(rkappa,io.dout_dir+"rkappa.png")
-        # io.plot_img(rkappa,io.dout_dir+"rkappa_high.png",high_res=True)
-        rkappa = enmap.zeros(shape[-2:],wcs)
-        rkappa = cs.alm2map(hp.almxfl(ukappa_alm,fls),rkappa,method="cyl")
-        io.plot_img(rkappa,io.dout_dir+"urkappa.png")
-        # io.plot_img(rkappa,io.dout_dir+"urkappa_high.png",high_res=True)
+    # if task==0:
+    #     ls = np.arange(lmax)
+    #     fls = np.ones(ls.size)
+    #     fls[ls>100] = 0
+    #     rkappa = enmap.zeros(shape[-2:],wcs)
+    #     rkappa = cs.alm2map(hp.almxfl(kappa_alm,fls),rkappa,method="cyl")
+    #     io.plot_img(rkappa,io.dout_dir+"rkappa.png")
+    #     # io.plot_img(rkappa,io.dout_dir+"rkappa_high.png",high_res=True)
+    #     rkappa = enmap.zeros(shape[-2:],wcs)
+    #     rkappa = cs.alm2map(hp.almxfl(ukappa_alm,fls),rkappa,method="cyl")
+    #     io.plot_img(rkappa,io.dout_dir+"urkappa.png")
+    #     # io.plot_img(rkappa,io.dout_dir+"urkappa_high.png",high_res=True)
     
 
     # alms of input kappa
@@ -117,7 +118,8 @@ for task in my_tasks:
     ikappa = enmap.read_map(ksim_location+"kappaMap_%s.fits" % (sindex))
     ikappa.wcs = wcs
     assert ikappa.shape==shape
-    ik_alm = cs.map2alm(ikappa-ikappa.mean(),lmax=mlmax).astype(np.complex128)
+    ik_alm = cs.map2alm(ikappa,lmax=mlmax).astype(np.complex128)
+    print(ik_alm.shape)
     del ikappa
 
     # cross and auto powers
@@ -196,7 +198,7 @@ if rank==0:
     pl = io.Plotter(yscale='log',xscale='log')
     pl.add(ells,theory.gCl('kk',ells),lw=3,color='k')
     pl.add_err(cents,bri,yerr=ebri,ls="none",marker="o",label='rxi')
-    pl.add_err(cents,brr,yerr=ebrr,ls="none",marker="o",label='rxr')
+    pl.add_err(cents,brr,yerr=ebrr,ls="none",marker="o",label='rxr') #!!!
     pl.add_err(cents,bii,yerr=ebii,ls="none",marker="x",label='ixi')
     pl.add(lpls,(lpal*(lpls*(lpls+1.))**2./4.)+theory.gCl('kk',lpls),ls="--")
     pl.add(lpls,lpal*(lpls*(lpls+1.))**2./4.,ls="-.")

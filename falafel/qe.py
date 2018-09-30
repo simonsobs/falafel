@@ -9,7 +9,8 @@ import healpy as hp # needed only for isotropic filtering and alm -> cl, need to
 
 """
 
-def rot2d(fmap): return np.stack((fmap[0]+fmap[1]*1j,fmap[0]-fmap[1]*1j)).real
+def rot2d(fmap): return np.stack((fmap[0]+fmap[1]*1j,fmap[0]-fmap[1]*1j))
+def irot2d(fmap): return np.stack(((fmap[0]+fmap[1])/2.,(fmap[0]-fmap[1])/2./1j)).real
 
 def get_fullsky_res(npix,squeeze=0.8):
     "Slightly squeezed pixel width in radians given npix pixels on the full sky."
@@ -42,16 +43,25 @@ def isotropic_filter_T(imap=None,alm=None,lcltt=None,ucltt=None,
     return hp.almxfl(alm,wfilter)
 
 
-def gradient_T_map(shape,wcs,alm,lmax):
+def gradient_T_map_spin(shape,wcs,alm,lmax,mlmax):
     """
     Given appropriately Wiener filtered temperature map alms,
     returns a real-space map containing the gradient of T.
     """
     omap = enmap.zeros((2,)+shape[-2:],wcs)
-    lmax = np.arange(0,lmax)
+    ells = np.arange(0,mlmax)
     fl = np.sqrt(ells*(ells+1.))
-    salms = np.stack((hp.almxfl(-alms,fl),np.zeros(alms.shape)))
+    fl[ells>lmax] = 0
+    salms = np.stack((hp.almxfl(-alm,fl),np.zeros(alm.shape)))
     return rot2d(cs.alm2map(salms,omap,spin=1))
+
+def gradient_T_map(shape,wcs,alm):
+    """
+    Given appropriately Wiener filtered temperature map alms,
+    returns a real-space map containing the gradient of T.
+    """
+    omap = enmap.zeros((2,)+shape[-2:],wcs)
+    return cs.alm2map(alm,omap,deriv=True) # note that deriv=True gives the scalar derivative of a scalar alm field
 
 def gradient_E_map(alm):
     """
@@ -68,11 +78,11 @@ def gradient_B_map(alm):
     pass
 
 
-def qe_spin_tt(shape,wcs,Xalm,Yalm,lmax):
-    grad = gradient_T_map(shape,wcs,Xalm,lmax)
-    ymap = cs.alm2map(Yalm,enmap.zeros(shape[-2:],wcs),lmax=lmax)
+def qe_spin_tt(shape,wcs,Xalm,Yalm,lmax_x,mlmax):
+    grad = gradient_T_map_spin(shape,wcs,Xalm,lmax_x,mlmax)
+    ymap = cs.alm2map(Yalm,enmap.zeros(shape[-2:],wcs))
     prod = grad*ymap
-    return cs.map2alm(prod,spin=1)
+    return cs.map2alm(enmap.enmap(irot2d(prod),wcs),spin=1,lmax=mlmax)
     
 
 
@@ -84,7 +94,7 @@ def qe_tt_simple(Xmap,Ymap=None,lcltt=None,ucltt=None, \
     from provided X and Y, and CMB and noise spectra.
     Does not normalize the estimator.
     """
-
+    
     # Set defaults if the high-res map Y is not different from the gradient map X
     if Ymap is None: assert (nltt_deconvolved_y is None) and (tcltt_y is None) and (lmin_y is None) and (lmax_y is None)
     if nltt_deconvolved_y is None: nltt_deconvolved_y = nltt_deconvolved
@@ -149,6 +159,14 @@ def qe_tt(shape,wcs,Xalm,Yalm,do_curl=False,mlmax=None,lmax_x=None,lmax_y=None):
         yfil = np.ones(mlmax)
         yfil[ells>lmax_y] = 0
         Yalm = hp.almxfl(Yalm,yfil)
+
+    if True:
+        ells = np.arange(0,mlmax)
+        fil = np.sqrt(ells*(ells+1.))
+        fil[ells>lmax_y] = 0
+        kalms = hp.almxfl(-qe_spin_tt(shape,wcs,Xalm,Yalm,lmax_x,mlmax)[0],fil)
+        print(kalms.shape)
+        return kalms
         
     # Get gradient and high-pass map in real space
     gradT = gradient_T_map(shape,wcs,Xalm)
