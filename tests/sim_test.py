@@ -8,7 +8,6 @@ import os,sys
 
 
 lmax = int(sys.argv[1]) # cmb ellmax
-#lmax = 1000 #int(sys.argv[1]) # cmb ellmax
 Nsims = int(sys.argv[2])
 
 
@@ -22,9 +21,7 @@ my_tasks = each_tasks[rank]
 
 
 res = 1.0 # resolution in arcminutes
-#mlmax = 2*lmax #+ 250 # lmax used for harmonic transforms
 mlmax = lmax + 250 # lmax used for harmonic transforms
-# mlmax = 2*lmax # lmax used for harmonic transforms
 
 
 
@@ -35,9 +32,7 @@ theory = cosmology.loadTheorySpectraFromCAMB(camb_root,get_dimensionless=False)
 # ells corresponding to modes in the alms
 ells = np.arange(0,mlmax,1)
     
-#lpls,lpal = np.loadtxt("data/nls_%d.txt" % lmax,unpack=True)
 lpfile = "/gpfs01/astro/workarea/msyriac/data/sims/msyriac/lenspix/cosmo2017_lmax_fix_lens_lmax_%d_qest_lmax_%d_AL.txt" % (lmax+2000,lmax)
-#lpfile = "/gpfs01/astro/workarea/msyriac/data/sims/msyriac/lenspix/cosmo2017_lmax_fix_lens_lmax_%d_qest_lmax_%d_AL.txt" % (2000+2000,2000)
 lpls,lpal = np.loadtxt(lpfile,unpack=True,usecols=[0,1])
 lpal = lpal / (lpls) / (lpls+1.)
 
@@ -71,46 +66,16 @@ for task in my_tasks:
 
     sindex = str(sim_index).zfill(5)
     if rank==0: print("Loading lensed map...")
-    #Xmap = enmap.read_map(sim_location+"cmb_set00_%s/fullskyLensedMapUnaberrated_T_%s.fits" % (sindex,sindex))
     Xmap = enmap.read_map(sim_location+"fullskyLensedMapUnaberrated_T_%s.fits" % (sindex))
     Xmap = enmap.enmap(Xmap,wcs)
     assert Xmap.shape==shape
-    # xalm = cs.map2alm(Xmap-Xmap.mean(),lmax=mlmax).astype(np.complex128)
-    # gy,gx = qe.gradient_T_map(shape,wcs,xalm)
-    # gy_alm = cs.map2alm(gy-gy.mean(),lmax=mlmax).astype(np.complex128)
-    # gx_alm = cs.map2alm(gx-gx.mean(),lmax=mlmax).astype(np.complex128)
-    # dyy,dyx = qe.gradient_T_map(shape,wcs,gy_alm)
-    # dxy,dxx = qe.gradient_T_map(shape,wcs,gx_alm)
-    # div = dyy + dxx
-    # dalm = cs.map2alm(div-div.mean(),lmax=mlmax).astype(np.complex128)
-    
-    # cls = hp.alm2cl(dalm)
-    # mstats.add_to_stats("cls",cls)
-    # continue
-        
-
 
     ### DO FULL SKY RECONSTRUCTION
     if rank==0: print("Calculating unnormalized full-sky kappa...")
     lcltt = theory.lCl('TT',range(lmax))
-    ukappa_alm = qe.qe_tt_simple(Xmap,lcltt=lcltt,nltt_deconvolved=0.,lmin=2,lmax=lmax,mlmax=mlmax)
-    print(ukappa_alm.shape)
-    # ukappa_alm = qe.qe_tt_simple(Xmap,lcltt=lcltt,nltt_deconvolved=0.,lmin=2,lmax=1000)  # !!!!!
+    ukappa_alm = qe.qe_tt_simple(Xmap,lcltt=lcltt,nltt_deconvolved=0.,lmin=2,lmax=lmax,mlmax=mlmax)[0]
     del Xmap
     kappa_alm = hp.almxfl(ukappa_alm,Al).astype(np.complex128)
-    #del ukappa_alm
-    # if task==0:
-    #     ls = np.arange(lmax)
-    #     fls = np.ones(ls.size)
-    #     fls[ls>100] = 0
-    #     rkappa = enmap.zeros(shape[-2:],wcs)
-    #     rkappa = cs.alm2map(hp.almxfl(kappa_alm,fls),rkappa,method="cyl")
-    #     io.plot_img(rkappa,io.dout_dir+"rkappa.png")
-    #     # io.plot_img(rkappa,io.dout_dir+"rkappa_high.png",high_res=True)
-    #     rkappa = enmap.zeros(shape[-2:],wcs)
-    #     rkappa = cs.alm2map(hp.almxfl(ukappa_alm,fls),rkappa,method="cyl")
-    #     io.plot_img(rkappa,io.dout_dir+"urkappa.png")
-    #     # io.plot_img(rkappa,io.dout_dir+"urkappa_high.png",high_res=True)
     
 
     # alms of input kappa
@@ -162,14 +127,6 @@ mstats.get_stats()
 
 if rank==0:
 
-    # ls = np.arange(len(cls))
-    # lcltt = theory.lCl('TT',ls)
-    # pl = io.Plotter(yscale='log',xscale='log')
-    # pl.add(ls,(ls*(ls+1.))**2*lcltt,color='k',lw=3)
-    # pl.add(ls,mstats.stats['cls']['mean'],alpha=0.5,marker="o")
-    # pl.done(io.dout_dir+"cltt.png")
-    # sys.exit()
-    
     buu = mstats.stats['uu']['mean']
     bri = mstats.stats['ri']['mean']
     brr = mstats.stats['rr']['mean']

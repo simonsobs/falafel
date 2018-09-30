@@ -55,14 +55,6 @@ def gradient_T_map_spin(shape,wcs,alm,lmax,mlmax):
     salms = np.stack((hp.almxfl(-alm,fl),np.zeros(alm.shape)))
     return rot2d(cs.alm2map(salms,omap,spin=1))
 
-def gradient_T_map(shape,wcs,alm):
-    """
-    Given appropriately Wiener filtered temperature map alms,
-    returns a real-space map containing the gradient of T.
-    """
-    omap = enmap.zeros((2,)+shape[-2:],wcs)
-    return cs.alm2map(alm,omap,deriv=True) # note that deriv=True gives the scalar derivative of a scalar alm field
-
 def gradient_E_map(alm):
     """
     Given appropriately Wiener filtered E-mode alms,
@@ -160,73 +152,10 @@ def qe_tt(shape,wcs,Xalm,Yalm,do_curl=False,mlmax=None,lmax_x=None,lmax_y=None):
         yfil[ells>lmax_y] = 0
         Yalm = hp.almxfl(Yalm,yfil)
 
-    if True:
-        ells = np.arange(0,mlmax)
-        fil = np.sqrt(ells*(ells+1.))
-        fil[ells>lmax_y] = 0
-        kalms = hp.almxfl(-qe_spin_tt(shape,wcs,Xalm,Yalm,lmax_x,mlmax)[0],fil)
-        print(kalms.shape)
-        return kalms
+    ells = np.arange(0,mlmax)
+    fil = np.sqrt(ells*(ells+1.))
+    fil[ells>lmax_y] = 0
+    kalms = hp.almxfl(-qe_spin_tt(shape,wcs,Xalm,Yalm,lmax_x,mlmax)[0],fil)
+    calms = hp.almxfl(-qe_spin_tt(shape,wcs,Xalm,Yalm,lmax_x,mlmax)[1],fil)
+    return kalms, calms
         
-    # Get gradient and high-pass map in real space
-    gradT = gradient_T_map(shape,wcs,Xalm)
-    highT = enmap.zeros(shape[-2:],wcs)
-    highT = cs.alm2map(Yalm,highT,method="cyl")
-
-    # Form real-space products of gradient and high-pass
-    py = gradT[0] * highT
-    px = gradT[1] * highT
-
-    del gradT
-    del highT
-    
-    # alms of products for divergence
-    px -= px.mean()
-    py -= py.mean()
-    alm_px = cs.map2alm(px,lmax=mlmax)
-    alm_py = cs.map2alm(py,lmax=mlmax)
-    # if (lmax_x is not None) or (lmax_y is not None):
-    #     alm_px = hp.almxfl(alm_px,xyfil)
-    #     alm_py = hp.almxfl(alm_py,xyfil)
-    
-    del px
-    #del py
-
-    # divergence from alms
-    dpx = enmap.zeros((2,)+shape[-2:],wcs)
-    dpx = cs.alm2map(alm_px,dpx,deriv=True,method="cyl")
-    del alm_px
-    dpxdx = dpx[1]
-    if do_curl: dpxdy = dpx[0]
-    dpy = enmap.zeros((2,)+shape[-2:],wcs)
-    dpy = cs.alm2map(alm_py,dpy,deriv=True,method="cyl")
-    del alm_py
-    if do_curl: dpydx = dpy[1]
-    dpydy = dpy[0]
-
-    # unnormalized kappa from divergence
-    kappa = dpxdx + dpydy
-    kappa -= kappa.mean()
-    alm_kappa = -cs.map2alm(kappa,lmax=mlmax)
-    del py
-    # if (lmax_x is not None) or (lmax_y is not None):
-    #     alm_kappa = hp.almxfl(alm_kappa,xyfil)
-    
-    del kappa
-
-    if do_curl:
-        curl = dpydx - dpxdy
-        del dpxdx,dpydy,dpydx,dpxdy,dpx,dpy
-        curl -= curl.mean()
-        alm_curl = -cs.map2alm(curl,lmax=mlmax)
-        # if (lmax_x is not None) or (lmax_y is not None):
-        #     alm_curl = hp.almxfl(alm_curl,xyfil)
-        
-        del curl
-        return alm_kappa,alm_curl
-    else:
-        del dpxdx,dpydy,dpx,dpy
-        return alm_kappa
-    
-
-
