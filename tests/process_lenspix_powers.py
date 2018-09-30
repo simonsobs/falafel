@@ -10,7 +10,8 @@ theory = cosmology.loadTheorySpectraFromCAMB(camb_root,get_dimensionless=False)
 
 
 sim_location = "/gpfs01/astro/workarea/msyriac/data/sims/msyriac/lenspix/"
-
+froot = "cosmo2017_lmax_fix_lens_lmax_4000_qest_lmax_2000_lmax4000_nside2048_interp1.51"
+froot2 = "cosmo2017_lmax_fix_lens_lmax_4000_qest_lmax_3000_lmax4000_nside2048_interp1.51"
 
 l2000_cpowers = []
 l3000_cpowers = []
@@ -18,10 +19,10 @@ l3000_cpowers = []
 
 for i in range(200):
     print(i)
-    ls2,cr2 = np.loadtxt(sim_location+"cosmo2017_test_lmax2250_lmax2250_nside2048_interp1.51recon_cross_power_%s.dat" % i,usecols=[0,2],unpack=True)
+    ls2,cr2 = np.loadtxt(sim_location+froot+"recon_cross_power_%s.dat" % i,usecols=[0,2],unpack=True)
     l2000_cpowers.append(cr2)
 
-    ls3,cr3 = np.loadtxt(sim_location+"cosmo2017_test_lmax3250_nside2048_interp1.51recon_cross_power_%s.dat" % i,usecols=[0,2],unpack=True)
+    ls3,cr3 = np.loadtxt(sim_location+froot2+"recon_cross_power_%s.dat" % i,usecols=[0,2],unpack=True)
     l3000_cpowers.append(cr3)
 
 l2c = np.array(l2000_cpowers)
