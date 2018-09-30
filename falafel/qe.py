@@ -5,12 +5,16 @@ import healpy as hp # needed only for isotropic filtering and alm -> cl, need to
 """
 1. you can use wigner-d gauss-legendre quadrature to calculate norm without evaluating wigner 3j
 2. factorization tricks can be used for above
-3. TT might not be correct. What is divergence doing to (spin-1?) gradient?
 
 """
 
-def rot2d(fmap): return np.stack((fmap[0]+fmap[1]*1j,fmap[0]-fmap[1]*1j))
-def irot2d(fmap): return np.stack(((fmap[0]+fmap[1])/2.,(fmap[0]-fmap[1])/2./1j)).real
+def rot2d(fmap):
+    # Rotates the map outputs M+ and M- of alm2map into sM and -sM
+    return np.stack((fmap[0]+fmap[1]*1j,fmap[0]-fmap[1]*1j))
+
+def irot2d(fmap):
+    # Rotates the alms +sAlm and -sAlm into inputs a+ and a- for map2alm
+    return np.stack(((fmap[0]+fmap[1])/2.,(fmap[0]-fmap[1])/2./1j)).real
 
 def get_fullsky_res(npix,squeeze=0.8):
     "Slightly squeezed pixel width in radians given npix pixels on the full sky."
