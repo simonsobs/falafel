@@ -9,6 +9,8 @@ import healpy as hp # needed only for isotropic filtering and alm -> cl, need to
 
 """
 
+def rot2d(fmap): return np.stack((fmap[0]+fmap[1]*1j,fmap[0]-fmap[1]*1j)).real
+
 def get_fullsky_res(npix,squeeze=0.8):
     "Slightly squeezed pixel width in radians given npix pixels on the full sky."
     return np.sqrt(4.*np.pi/npix) * squeeze
@@ -38,13 +40,16 @@ def isotropic_filter_T(imap=None,alm=None,lcltt=None,ucltt=None,
     return hp.almxfl(alm,wfilter)
 
 
-def gradient_T_map(shape,wcs,alm):
+def gradient_T_map(shape,wcs,alm,lmax):
     """
     Given appropriately Wiener filtered temperature map alms,
     returns a real-space map containing the gradient of T.
     """
     omap = enmap.zeros((2,)+shape[-2:],wcs)
-    return cs.alm2map(alm,omap,deriv=True) # note that deriv=True gives the scalar derivative of a scalar alm field
+    lmax = np.arange(0,lmax)
+    fl = np.sqrt(ells*(ells+1.))
+    salms = np.stack((hp.almxfl(-alms,fl),np.zeros(alms.shape)))
+    return rot2d(cs.alm2map(salms,omap,spin=1))
 
 def gradient_E_map(alm):
     """
@@ -59,6 +64,14 @@ def gradient_B_map(alm):
     returns a real-space map containing the gradient of B.
     """
     pass
+
+
+def qe_spin_tt(shape,wcs,Xalm,Yalm,lmax):
+    grad = gradient_T_map(shape,wcs,Xalm,lmax)
+    ymap = cs.alm2map(Yalm,enmap.zeros(shape[-2:],wcs),lmax=lmax)
+    prod = grad*ymap
+    return cs.map2alm(prod,spin=1)
+    
 
 
 def qe_tt_simple(Xmap,Ymap=None,lcltt=None,ucltt=None, \
