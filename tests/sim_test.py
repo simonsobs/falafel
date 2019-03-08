@@ -41,8 +41,8 @@ dh_als = np.nan_to_num(dh_nls * 2. / lpls /(lpls+1))
 Al = dh_als
 Al = maps.interp(lpls,dh_als)(ells)
 Nl = maps.interp(lpls,dh_nls)(ells)
-Al[ells<2] = 0
-Nl[ells<2] = 0
+Al[ells<1] = 0
+Nl[ells<1] = 0
 
 shape,wcs = enmap.fullsky_geometry(res=np.deg2rad(res/60.),proj="car")
 #sim_location = "/global/cscratch1/sd/engelen/simsS1516_v0.3/data/"
@@ -52,9 +52,9 @@ sim_location = "/gpfs01/astro/workarea/msyriac/data/sims/alex/v0.3/"
 ksim_location = "/gpfs01/astro/workarea/msyriac/data/sims/alex/v0.3/"
 
 
-bin_edges = np.logspace(np.log10(2),np.log10(lmax),100)
+#bin_edges = ls#np.logspace(np.log10(2),np.log10(lmax),100)
 #bin_edges = np.linspace(2,lmax,300)
-binner = stats.bin1D(bin_edges)
+#binner = stats.bin1D(bin_edges)
 
 mstats = stats.Stats(comm)
 
@@ -84,7 +84,6 @@ for task in my_tasks:
     ikappa.wcs = wcs
     assert ikappa.shape==shape
     ik_alm = cs.map2alm(ikappa,lmax=mlmax).astype(np.complex128)
-    print(ik_alm.shape)
     del ikappa
 
     # cross and auto powers
@@ -99,18 +98,18 @@ for task in my_tasks:
 
     ls = np.arange(len(crr))
 
-    cuu[ls<2] = np.nan
-    cui[ls<2] = np.nan
-    cri[ls<2] = np.nan
-    crr[ls<2] = np.nan
-    cii[ls<2] = np.nan
+    cuu[ls<1] = np.nan
+    cui[ls<1] = np.nan
+    cri[ls<1] = np.nan
+    crr[ls<1] = np.nan
+    cii[ls<1] = np.nan
 
 
-    cents,buu = binner.binned(ls,cuu)
-    cents,bui = binner.binned(ls,cui)
-    cents,bri = binner.binned(ls,cri)
-    cents,brr = binner.binned(ls,crr)
-    cents,bii = binner.binned(ls,cii)
+    cents,buu = ls,cuu #binner.binned(ls,cuu)
+    cents,bui = ls,cui #binner.binned(ls,cui)
+    cents,bri = ls,cri #binner.binned(ls,cri)
+    cents,brr = ls,crr #binner.binned(ls,crr)
+    cents,bii = ls,cii #binner.binned(ls,cii)
 
     mstats.add_to_stats("cuu",cuu)
 
