@@ -1,4 +1,4 @@
-from enlib import curvedsky as cs, enmap
+from pixell import curvedsky as cs, enmap
 import numpy as np
 import healpy as hp # needed only for isotropic filtering and alm -> cl, need to make it healpy independent
 
@@ -82,9 +82,10 @@ def qe_spin_tt(shape,wcs,Xalm,Yalm,lmax_x,mlmax):
     
 
 
-def qe_tt_simple(Xmap,Ymap=None,lcltt=None,ucltt=None, \
+def qe_tt_simple(Xmap=None,Ymap=None,Xalm=None,Yalm=None,lcltt=None,ucltt=None, \
                  nltt_deconvolved=None,tcltt=None,nltt_deconvolved_y=None,tcltt_y=None,
-                 lmin=None,lmax=None,lmin_y=None,lmax_y=None,do_curl=False,mlmax=None,healpix=False,pure_healpix=False):
+                 lmin=None,lmax=None,lmin_y=None,lmax_y=None,do_curl=False,mlmax=None,healpix=False,pure_healpix=False,
+                 shape=None,wcs=None):
     """
     Does -div(grad(wX)*wY) where wX and wY are Wiener filtered appropriately for isotropic noise
     from provided X and Y, and CMB and noise spectra.
@@ -109,31 +110,33 @@ def qe_tt_simple(Xmap,Ymap=None,lcltt=None,ucltt=None, \
         npix = Xmap.size
         shape,wcs = enmap.fullsky_geometry(res=get_fullsky_res(npix=npix),proj="car")
     else:
-        shape,wcs = Xmap.shape,Xmap.wcs
+        if (shape is None) or (wcs is None): shape,wcs = Xmap.shape,Xmap.wcs
 
     # map -> alm
-    Xmap -= Xmap.mean()
-    iXalm = gmap2alm(Xmap,lmax=mlmax,healpix=healpix)
-    del Xmap
-    if Ymap is None:
-        iYalm = iXalm.copy()
-    else:
-        Ymap -= Ymap.mean()
-        iYalm = gmap2alm(Ymap,lmax=mlmax,healpix=healpix)
-    del Ymap
+    if Xalm is None:
+        Xmap -= Xmap.mean()
+        Xalm = gmap2alm(Xmap,lmax=mlmax,healpix=healpix)
+        del Xmap
+    if Yalm is None:
+        if Ymap is None:
+            Yalm = Xalm.copy()
+        else:
+            Ymap -= Ymap.mean()
+            Yalm = gmap2alm(Ymap,lmax=mlmax,healpix=healpix)
+        del Ymap
 
     # filter alms
-    Xalm = isotropic_filter_T(alm=iXalm,lcltt=lcltt,ucltt=ucltt,
+    iXalm = isotropic_filter_T(alm=Xalm,lcltt=lcltt,ucltt=ucltt,
                               nltt_deconvolved=nltt_deconvolved,tcltt=tcltt,lmin=lmin,lmax=lmax,gradient=True)
-    Yalm = isotropic_filter_T(alm=iYalm,lcltt=lcltt,ucltt=ucltt,
+    iYalm = isotropic_filter_T(alm=Yalm,lcltt=lcltt,ucltt=ucltt,
                               nltt_deconvolved=nltt_deconvolved_y,tcltt=tcltt_y,lmin=lmin_y,lmax=lmax_y,gradient=False)
     # get kappa
     if pure_healpix:
         from falafel import qehp
         nside = hp.npix2nside(npix)
-        return qehp.qe_tt(nside,Xalm,Yalm,mlmax=mlmax,do_curl=do_curl,lmax_x=lmax,lmax_y=lmax_y)
+        return qehp.qe_tt(nside,iXalm,iYalm,mlmax=mlmax,do_curl=do_curl,lmax_x=lmax,lmax_y=lmax_y)
     else:    
-        return qe_tt(shape,wcs,Xalm,Yalm,mlmax=mlmax,do_curl=do_curl,lmax_x=lmax,lmax_y=lmax_y)
+        return qe_tt(shape,wcs,iXalm,iYalm,mlmax=mlmax,do_curl=do_curl,lmax_x=lmax,lmax_y=lmax_y)
     
 def qe_tt(shape,wcs,Xalm,Yalm,do_curl=False,mlmax=None,lmax_x=None,lmax_y=None):
     """
