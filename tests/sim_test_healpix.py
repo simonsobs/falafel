@@ -1,5 +1,6 @@
 from __future__ import print_function
-from enlib import curvedsky as cs, enmap, lensing as enlensing, powspec, bench
+from pixell import curvedsky as cs, enmap, lensing as enlensing, powspec
+from enlib import bench # comment this and any uses of bench if you dont have enlib
 import numpy as np
 import healpy as hp # needed only for isotropic filtering and alm -> cl, need to make it healpy independent
 from orphics import io,cosmology,lensing,maps,stats,mpi
