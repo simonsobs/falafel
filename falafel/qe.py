@@ -2,23 +2,116 @@ from pixell import curvedsky as cs, enmap
 import numpy as np
 import healpy as hp # needed only for isotropic filtering and alm -> cl, need to make it healpy independent
 
-"""
-1. you can use wigner-d gauss-legendre quadrature to calculate norm without evaluating wigner 3j
-2. factorization tricks can be used for above
-
-"""
 
 def rot2d(fmap):
-    # Rotates the map outputs M+ and M- of alm2map into sM and -sM
+    """
+    ( f0 + i f1 ) , ( f0 - i f1)
+    """
+    # e.g. Rotates the map outputs M+ and M- of alm2map into sM and -sM
     return np.stack((fmap[0]+fmap[1]*1j,fmap[0]-fmap[1]*1j))
 
-def irot2d(fmap):
-    # Rotates the alms +sAlm and -sAlm into inputs a+ and a- for map2alm
-    return np.stack(((fmap[0]+fmap[1])/2.,(fmap[0]-fmap[1])/2./1j)).real
+def irot2d(fmap,spin):
+    """
+    ( f0 + (-1)^s f1 )/2 , ( f0 - (-1)^s f1 )/(2i)
+    """
+    # e.g. Rotates the alms +sAlm and -sAlm into inputs a+ and a- for map2alm
+    return -np.stack(((fmap[0]+((-1)**spin)*fmap[1])/2.,(fmap[0]-((-1)**spin)*fmap[1])/2./1j))
+
+def alm2map_spin(alm,spin_alm,spin_transform,omap):
+    """
+    Returns
+    X(n) = sum_lm  alm_s1 s2_Y_lm(n)
+
+    where s1 and s2 are different spins
+
+    """
+    ap_am = irot2d(alm,spin=spin_alm)
+    res = rot2d(cs.alm2map(ap_am,omap,spin=abs(spin_transform)))
+    if spin_transform>=0:
+        return res
+    else:
+        return res[::-1,...]
+
+def almxfl(alm,fl):
+    ncomp = alm.shape[0]
+    assert ncomp in [1,2,3]
+    res = alm.copy()
+    for i in range(ncomp): res[i] = hp.almxfl(alm[i],fl)
+    return res
+
+def pol_alms(Ealm,Balm):
+    return np.stack((Ealm+1j*Balm,Ealm-1j*Balm))
+
+def gradient_spin(shape,wcs,alm,lmax,mlmax,spin):
+    """
+    Given appropriately Wiener filtered temperature map alms,
+    returns a real-space map containing the gradient.
+    """
+    omap = enmap.zeros((2,)+shape[-2:],wcs)
+    ells = np.arange(0,mlmax)
+    if spin==0:
+        fl = np.sqrt(ells*(ells+1.))
+        spin_out = 1
+        sign = 1
+    elif spin==(-2):
+        fl = np.sqrt((ells-1)*(ells+2.))
+        spin_out = -1
+        sign = 1 #!!! this sign is not understood
+    elif spin==2:
+        fl = np.sqrt((ells-2)*(ells+3.))
+        spin_out = 3
+        sign = -1
+    fl[ells>lmax] = 0
+    salms = almxfl(alm,fl)
+    return sign*alm2map_spin(salms,spin,spin_out,omap)
+
+
+def deflection_map_to_kappa_curl_alms(dmap,mlmax):
+    dmap[1] = dmap[0].conj() # !!! this is being set manually instead of dropping out naturally
+    res = cs.map2alm(enmap.enmap(-irot2d(dmap,spin=0).real,dmap.wcs),spin=1,lmax=mlmax)
+    ells = np.arange(0,mlmax)
+    fl = np.sqrt(ells*(ells+1.))/2
+    res = almxfl(res,fl)
+    return res
+
+def qe_spin_temperature_deflection(shape,wcs,Xalm,Yalm,lmax_x,mlmax):
+    grad = gradient_spin(shape,wcs,np.stack((Xalm,Xalm)),lmax_x,mlmax,spin=0)
+    ymap = cs.alm2map(Yalm,enmap.zeros(shape[-2:],wcs))
+    prod = -grad*ymap
+    return enmap.enmap(prod,wcs)
+
+def qe_spin_pol_deflection(shape,wcs,X_Ealm,X_Balm,Y_Ealm,Y_Balm,lmax_x,mlmax):
+    palms = pol_alms(X_Ealm,X_Balm)
+    grad_p2 = gradient_spin(shape,wcs,palms,lmax_x,mlmax,spin=2)
+    grad_m2 = gradient_spin(shape,wcs,palms,lmax_x,mlmax,spin=-2)
+    # E_alm, B_alm -> Q(n), U(n) -> Q+iU, Q-iU
+    ymap = rot2d(cs.alm2map(np.stack((Y_Ealm,Y_Balm)),enmap.zeros((2,)+shape[-2:],wcs),spin=2)) #!!
+    prod = -grad_m2*ymap[0]-grad_p2*ymap[1]
+    return enmap.enmap(prod,wcs)/2 # !! this factor of 2 is not understood
+    
+def qe_temperature_only(shape,wcs,Xalm,Yalm,lmax_x,mlmax):
+    dmap = qe_spin_temperature_deflection(shape,wcs,Xalm,Yalm,lmax_x,mlmax)
+    return deflection_map_to_kappa_curl_alms(dmap,mlmax)
+
+def qe_pol_only(shape,wcs,X_Ealm,X_Balm,Y_Ealm,Y_Balm,lmax_x,mlmax):
+    dmap = qe_spin_pol_deflection(shape,wcs,X_Ealm,X_Balm,Y_Ealm,Y_Balm,lmax_x,mlmax)
+    return deflection_map_to_kappa_curl_alms(dmap,mlmax)
+
+def qe_mv(shape,wcs,X_Talm,X_Ealm,X_Balm,Y_Talm,Y_Ealm,Y_Balm,lmax_x,mlmax):
+    dmap_t = qe_spin_temperature_deflection(shape,wcs,X_Talm,Y_Talm,lmax_x,mlmax)
+    dmap_p = qe_spin_pol_deflection(shape,wcs,X_Ealm,X_Balm,Y_Ealm,Y_Balm,lmax_x,mlmax)
+    return deflection_map_to_kappa_curl_alms(dmap_t+dmap_p,mlmax)
+
+
+"""
+LEGACY
+"""
 
 def get_fullsky_res(npix,squeeze=0.8):
     "Slightly squeezed pixel width in radians given npix pixels on the full sky."
     return np.sqrt(4.*np.pi/npix) * squeeze
+
+
 
 def gmap2alm(imap,lmax,healpix=False,iter=3):
     """Generic map -> alm for both healpix and rectangular pixels"""
@@ -27,6 +120,8 @@ def gmap2alm(imap,lmax,healpix=False,iter=3):
         return cs.map2alm(imap,lmax=lmax)
     else:
         return hp.map2alm(imap,lmax=lmax,iter=iter)
+
+
 
 
 def isotropic_filter_T(imap=None,alm=None,lcltt=None,ucltt=None,
@@ -46,40 +141,6 @@ def isotropic_filter_T(imap=None,alm=None,lcltt=None,ucltt=None,
     wfilter[ells>lmax] = 0
     return hp.almxfl(alm,wfilter)
 
-
-def gradient_T_map_spin(shape,wcs,alm,lmax,mlmax):
-    """
-    Given appropriately Wiener filtered temperature map alms,
-    returns a real-space map containing the gradient of T.
-    """
-    omap = enmap.zeros((2,)+shape[-2:],wcs)
-    ells = np.arange(0,mlmax)
-    fl = np.sqrt(ells*(ells+1.))
-    fl[ells>lmax] = 0
-    salms = np.stack((hp.almxfl(-alm,fl),np.zeros(alm.shape)))
-    return rot2d(cs.alm2map(salms,omap,spin=1))
-
-def gradient_E_map(alm):
-    """
-    Given appropriately Wiener filtered E-mode alms,
-    returns a real-space map containing the gradient of E.
-    """
-    pass
-
-def gradient_B_map(alm):
-    """
-    Given appropriately Wiener filtered B-mode alms,
-    returns a real-space map containing the gradient of B.
-    """
-    pass
-
-
-def qe_spin_tt(shape,wcs,Xalm,Yalm,lmax_x,mlmax):
-    grad = gradient_T_map_spin(shape,wcs,Xalm,lmax_x,mlmax)
-    ymap = cs.alm2map(Yalm,enmap.zeros(shape[-2:],wcs))
-    prod = grad*ymap
-    return cs.map2alm(enmap.enmap(irot2d(prod),wcs),spin=1,lmax=mlmax)
-    
 
 
 def qe_tt_simple(Xmap=None,Ymap=None,Xalm=None,Yalm=None,lcltt=None,ucltt=None, \
