@@ -2,6 +2,12 @@ from pixell import curvedsky as cs, enmap
 import numpy as np
 import healpy as hp # needed only for isotropic filtering and alm -> cl, need to make it healpy independent
 
+def filter_alms(alms,ffunc,lmin,lmax):
+    ells = np.arange(0,lmax+100)
+    filt = np.nan_to_num(ffunc(ells))+ells*0
+    filt[ells<lmin] = 0
+    filt[ells>lmax] = 0
+    return hp.almxfl(alms.copy(),filt)
 
 def rot2d(fmap):
     """
@@ -22,15 +28,18 @@ def alm2map_spin(alm,spin_alm,spin_transform,omap):
     Returns
     X(n) = sum_lm  alm_s1 s2_Y_lm(n)
 
-    where s1 and s2 are different spins
+    where s1=spin_alm and s2=spin_transform are different spins.
+
+    alm should be (alm_+|s|, alm_-|s|)
 
     """
+    # Transform (alm_+|s|, alm_-|s|) to (alm_+, alm_-)
     ap_am = irot2d(alm,spin=spin_alm)
+    # Rotate maps M+ and M- to M_+|s| and M_-|s|
     res = rot2d(cs.alm2map(ap_am,omap,spin=abs(spin_transform)))
-    if spin_transform>=0:
-        return res
-    else:
-        return res[::-1,...]
+    # M_+|s| is the first component
+    # M_-|s| is the second component
+    return res
 
 def almxfl(alm,fl):
     ncomp = alm.shape[0]
@@ -39,36 +48,36 @@ def almxfl(alm,fl):
     for i in range(ncomp): res[i] = hp.almxfl(alm[i],fl)
     return res
 
-def pol_alms(Ealm,Balm):
-    return np.stack((Ealm+1j*Balm,Ealm-1j*Balm))
+def pol_alms(Ealm,Balm): return np.stack((Ealm+1j*Balm,Ealm-1j*Balm))
 
 def gradient_spin(shape,wcs,alm,lmax,mlmax,spin):
     """
     Given appropriately Wiener filtered temperature map alms,
     returns a real-space map containing the gradient.
+
+    alm should be (alm_+|s|, alm_-|s|)
     """
     omap = enmap.zeros((2,)+shape[-2:],wcs)
     ells = np.arange(0,mlmax)
     if spin==0:
         fl = np.sqrt(ells*(ells+1.))
-        spin_out = 1
+        spin_out = 1 ; comp = 0
         sign = 1
     elif spin==(-2):
         fl = np.sqrt((ells-1)*(ells+2.))
-        spin_out = -1
+        spin_out = -1 ; comp = 1
         sign = 1 #!!! this sign is not understood
     elif spin==2:
         fl = np.sqrt((ells-2)*(ells+3.))
-        spin_out = 3
+        spin_out = 3 ; comp = 0
         sign = -1
     fl[ells>lmax] = 0
+    fl[ells<2] = 0
     salms = almxfl(alm,fl)
-    return sign*alm2map_spin(salms,spin,spin_out,omap)
-
+    return sign*alm2map_spin(salms,spin,spin_out,omap)[comp]
 
 def deflection_map_to_kappa_curl_alms(dmap,mlmax):
-    dmap[1] = dmap[0].conj() # !!! this is being set manually instead of dropping out naturally
-    res = cs.map2alm(enmap.enmap(-irot2d(dmap,spin=0).real,dmap.wcs),spin=1,lmax=mlmax)
+    res = cs.map2alm(enmap.enmap(-irot2d(np.stack((dmap,dmap.conj())),spin=0).real,dmap.wcs),spin=1,lmax=mlmax)
     ells = np.arange(0,mlmax)
     fl = np.sqrt(ells*(ells+1.))/2
     res = almxfl(res,fl)
@@ -82,6 +91,8 @@ def qe_spin_temperature_deflection(shape,wcs,Xalm,Yalm,lmax_x,mlmax):
 
 def qe_spin_pol_deflection(shape,wcs,X_Ealm,X_Balm,Y_Ealm,Y_Balm,lmax_x,mlmax):
     palms = pol_alms(X_Ealm,X_Balm)
+    # palms is now (Ealm + i Balm, Ealm - i Balm)
+    # corresponding to +2 and -2 spin components
     grad_p2 = gradient_spin(shape,wcs,palms,lmax_x,mlmax,spin=2)
     grad_m2 = gradient_spin(shape,wcs,palms,lmax_x,mlmax,spin=-2)
     # E_alm, B_alm -> Q(n), U(n) -> Q+iU, Q-iU
@@ -97,10 +108,10 @@ def qe_pol_only(shape,wcs,X_Ealm,X_Balm,Y_Ealm,Y_Balm,lmax_x,mlmax):
     dmap = qe_spin_pol_deflection(shape,wcs,X_Ealm,X_Balm,Y_Ealm,Y_Balm,lmax_x,mlmax)
     return deflection_map_to_kappa_curl_alms(dmap,mlmax)
 
-def qe_mv(shape,wcs,X_Talm,X_Ealm,X_Balm,Y_Talm,Y_Ealm,Y_Balm,lmax_x,mlmax):
-    dmap_t = qe_spin_temperature_deflection(shape,wcs,X_Talm,Y_Talm,lmax_x,mlmax)
-    dmap_p = qe_spin_pol_deflection(shape,wcs,X_Ealm,X_Balm,Y_Ealm,Y_Balm,lmax_x,mlmax)
-    return deflection_map_to_kappa_curl_alms(dmap_t+dmap_p,mlmax)
+def qe_mv(shape,wcs,X_Talm,X_Ealm,X_Balm,Y_Talm,Y_Ealm,Y_Balm,lmaxt,lmaxp,mlmax):
+    dmap_t = qe_spin_temperature_deflection(shape,wcs,X_Talm,Y_Talm,lmaxt,mlmax)
+    dmap_p = qe_spin_pol_deflection(shape,wcs,X_Ealm,X_Balm,Y_Ealm,Y_Balm,lmaxp,mlmax)
+    return deflection_map_to_kappa_curl_alms(dmap_t+dmap_p,mlmax),dmap_t,dmap_p
 
 
 """

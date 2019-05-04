@@ -20,7 +20,17 @@ TB = G(d(T) + d(E=0,B)) - TT
 TE = G(d(T) + d(E,B=0)) - EE - TT 
 MV = G(d(T) + d(E,B))
 MV_pol = G(d(E,B))
+
+TT
+EE
+EE + EB
+TT + EE + TE + EB + TB
 """
+
+
+#est = "temp"
+est = "pol"
+#est = "mv"
 
 thloc = "/home/msyriac/data/act/theory/cosmo2017_10K_acc3"
 theory = cosmology.loadTheorySpectraFromCAMB(thloc,get_dimensionless=False)
@@ -30,7 +40,7 @@ shape,wcs = enmap.fullsky_geometry(res=np.deg2rad(res/60.),proj="car")
 #shape,wcs = enmap.band_geometry((np.deg2rad(-60.),np.deg2rad(30.)),res=np.deg2rad(res/60.), proj="car")
 sim_location = "/home/msyriac/data/sims/alex/v0.4/"
 sindex = str(1).zfill(5)
-mlmax = 5000
+mlmax = 4000
 
 alm = maps.change_alm_lmax(
     hp.read_alm("/home/msyriac/data/sims/alex/v0.4/fullskyLensedUnabberatedCMB_alm_set00_%s.fits"
@@ -54,32 +64,46 @@ def filter_alms(alms,ffunc,lmin,lmax):
 falm = filter_alms(talm,lambda x: 1./theory.lCl('TT',x),lmin,lmax)
 xalm = filter_alms(talm,lambda x: 1,lmin,lmax)
 X_Ealm = filter_alms(ealm,lambda x: 1,lmin,lmax)
-X_Balm = filter_alms(balm,lambda x: 1,lmin,lmax) #* 0 # !!!
+X_Balm = filter_alms(balm,lambda x: 1,lmin,lmax)
 Y_Ealm = filter_alms(ealm,lambda x: 1./theory.lCl('EE',x),lmin,lmax)
-Y_Balm = filter_alms(balm,lambda x: 1./theory.lCl('BB',x),lmin,lmax)  #* 0 # !!!
+Y_Balm = filter_alms(balm,lambda x: 1./theory.lCl('BB',x),lmin,lmax)
 
 
-#with bench.show("recon tt"): recon = qe.qe_temperature_only(shape,wcs,xalm,falm,lmax,mlmax)[0]
-# with bench.show("recon pol"): recon = qe.qe_pol_only(shape,wcs,X_Ealm,X_Balm,Y_Ealm,Y_Balm,lmax,mlmax)[0]
-with bench.show("recon mv"): recon = qe.qe_mv(shape,wcs,xalm,X_Ealm,X_Balm,falm,Y_Ealm,Y_Balm,lmax,mlmax)[0]
+if est=="temp":
+    with bench.show("recon tt"): recon = qe.qe_temperature_only(shape,wcs,xalm,falm,lmax,mlmax)[0]
+elif est=="pol":
+    with bench.show("recon pol"): recon = qe.qe_pol_only(shape,wcs,X_Ealm,X_Balm,Y_Ealm,Y_Balm,lmax,mlmax)[0]
+    with bench.show("recon pol"): recon_ee = qe.qe_pol_only(shape,wcs,X_Ealm,X_Balm*0,Y_Ealm,Y_Balm*0,lmax,mlmax)[0]
+elif est=="mv":
+    with bench.show("recon mv"): recon = qe.qe_mv(shape,wcs,xalm,X_Ealm,X_Balm,falm,Y_Ealm,Y_Balm,lmax,mlmax)[0]
 
 palm = maps.change_alm_lmax(hp.read_alm(sim_location+"fullskyPhi_alm_%s.fits" % (sindex)),mlmax)
 ikalm = lensing.phi_to_kappa(palm)
 
 ls,Als,Als_ee,Als_eb,Als_te,Als_tb,al_mv_pol,al_mv = np.loadtxt("norm.txt",unpack=True)
-# Als = al_mv_pol # !!
+if est=="pol":
+    Als = al_mv_pol # !!
+    kalms_eb = hp.almxfl(recon-recon_ee,Als_eb)
+elif est=="mv":
+    Als = al_mv
 # Als = Als_ee # !!
-Als = al_mv
 kalms = hp.almxfl(recon,Als)
 
 cls = hp.alm2cl(kalms,ikalm)
 icls = hp.alm2cl(ikalm,ikalm)
 acls = hp.alm2cl(kalms,kalms)
+if est=='pol':
+    cls_eb = hp.alm2cl(kalms_eb,ikalm)
+    acls_eb = hp.alm2cl(kalms_eb,kalms_eb)
+    
 
-pl = io.Plotter(xyscale='loglog')
+pl = io.Plotter(xyscale='loglog')#lin',scalefn=lambda x: x)
 ells = range(len(icls))
+if est=='pol':
+    pl.add(ells,acls_eb,label='EB')
+    pl.add(ells,cls_eb,label='EB',marker='o')
 pl.add(ells,acls)
-pl.add(ls,theory.gCl('kk',ls) + (Als*ls*(ls+1)/4.))
+pl.add(ls,maps.interp(ells,icls)(ls) + (Als*ls*(ls+1)/4.))
 pl.add(ells,cls)
 pl.add(ells,icls)
 pl.add(ells,theory.gCl('kk',ells))
