@@ -167,6 +167,7 @@ def qe_all(shape,wcs,theory_func,mlmax,fTalm=None,fEalm=None,fBalm=None,estimato
             if name=='Peb' : dcache[name] = pest(xalm("e0"),zero,fEalm,fBalm) # note xalm("b") always set to zero
             if name=='Ptb' : dcache[name] = pest(xalm("e_t0"),zero,zero,fBalm) # otherwise TB ends up wrong
             if name=='Pte0': dcache[name] = pest(xalm("e_t0"),zero,fEalm,zero) # Another weird one for TE
+            if name=='Peb0': dcache[name] = pest(xalm("e0"),zero,zero,fBalm) # Another weird one for EB
             if name=='Pteb': dcache[name] = pest(xalm("e"),zero,fEalm,fBalm)
             return dcache[name]
 
@@ -178,7 +179,7 @@ def qe_all(shape,wcs,theory_func,mlmax,fTalm=None,fEalm=None,fBalm=None,estimato
 
     TT: test(gT,gE=0 | T)
     EE: polest(gT=0,gE | E,B=0)
-    EB: polest(gT=0,gE | E,B) - polest(gT=0,gE | E,B=0)
+    EB: polest(gT=0,gE | E=0,B)
     TE: polest(gE=0,gT | E,B=0) + test(gT=0,gE | T)
     TB: polest(gT,gE=0 | E=0,B) # this one's a bit weird
     mvpol: polest(gT=0,gE | E,B)
@@ -187,7 +188,7 @@ def qe_all(shape,wcs,theory_func,mlmax,fTalm=None,fEalm=None,fBalm=None,estimato
     """
 
     if 'TE' in ests: results['TE'] = kfunc(dmap('Tte0') + dmap('Pte0'))
-    if 'EB' in ests: results['EB'] = kfunc(dmap('Peb') - dmap('Pe'))
+    if 'EB' in ests: results['EB'] = kfunc(dmap('Peb0'))
     if 'EE' in ests: results['EE'] = kfunc(dmap('Pe'))
     if 'TT' in ests: results['TT'] = kfunc(dmap('Tt'))
     if 'TB' in ests: results['TB'] = kfunc(dmap('Ptb'))
