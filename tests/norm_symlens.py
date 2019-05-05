@@ -5,7 +5,7 @@ import numpy as np
 import os,sys
 import symlens
 
-thloc = "/home/msyriac/data/act/theory/cosmo2017_10K_acc3"
+thloc = "/scratch/r/rbond/msyriac/data/sims/alex/v0.4/cosmo2017_10K_acc3"
 theory = cosmology.loadTheorySpectraFromCAMB(thloc,get_dimensionless=False)
 
 def get_norm(uctt,tctt,ucee,tcee,ucte,tcte,ucbb,tcbb,lmin=100,lmax=2000,plot=True):
@@ -53,7 +53,7 @@ def get_norm(uctt,tctt,ucee,tcee,ucte,tcte,ucbb,tcbb,lmin=100,lmax=2000,plot=Tru
     al_mv_pol = (1./alinv_mv_pol)
     al_mv_pol[ls<1] = 0
     if plot:
-        pl = io.Plotter(xyscale='loglog')
+        pl = io.Plotter(xyscale='loglog',xlabel='',ylabel='')
         pl.add(ells,clkk,color='k',lw=3)
         pl.add(ls,al_mv*ls**2.,ls="-",color="red",label='mv',lw=2)
         pl.add(ls,al_mv_pol*ls**2.,ls="-",color="green",label='mv_pol',lw=2)
@@ -62,8 +62,15 @@ def get_norm(uctt,tctt,ucee,tcee,ucte,tcte,ucbb,tcbb,lmin=100,lmax=2000,plot=Tru
             pl.add(ls,Als[pol]*ls**2.,ls="--",color="C%d" % i)
         pl.done()
 
+
+    Al1 = symlens.A_l(shape, wcs, feed_dict=feed_dict, estimator="hdv", XY="TE", xmask=tmask, ymask=tmask)
+    Al2 = symlens.A_l(shape, wcs, feed_dict=feed_dict, estimator="hdv", XY="ET", xmask=tmask, ymask=tmask)
+    Al_te_hdv = 1./((1./Al1)+(1./Al2))
+    cents,Al1d = binner.bin(Al_te_hdv)
+    Al_te_hdv = np.interp(ls,cents,Al1d*cents**2.)/ls**2.
+    Al_te_hdv[ls<1] = 0
         
-    return ls,Als,al_mv_pol,al_mv
+    return ls,Als,al_mv_pol,al_mv,Al_te_hdv
 
 
 ells = np.arange(3100)
@@ -73,5 +80,5 @@ ucbb = tcbb = theory.lCl('BB',ells)
 ucte = tcte = theory.lCl('TE',ells)
 clkk = theory.gCl('kk',ells)
 
-ls,Als,al_mv_pol,al_mv = get_norm(uctt,tctt,ucee,tcee,ucte,tcte,ucbb,tcbb,lmin=100,lmax=3000,plot=True)
-io.save_cols("norm.txt",(ls,Als['TT'],Als['EE'],Als['EB'],Als['TE'],Als['TB'],al_mv_pol,al_mv))
+ls,Als,al_mv_pol,al_mv,Al_te_hdv = get_norm(uctt,tctt,ucee,tcee,ucte,tcte,ucbb,tcbb,lmin=100,lmax=3000,plot=False)
+io.save_cols("norm.txt",(ls,Als['TT'],Als['EE'],Als['EB'],Als['TE'],Als['TB'],al_mv_pol,al_mv,Al_te_hdv))
