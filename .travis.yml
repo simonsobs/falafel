@@ -1,47 +1,36 @@
 language: python
 python:
-  # We don't actually use the Travis Python, but this keeps it organized.
-  - "2.7"
-  - "3.4"
-  - "3.5"
-  - "3.6"
+- '2.7'
+- '3.4'
+- '3.5'
+- '3.6'
 install:
-  - sudo apt-get update
-  # We do this conditionally because it saves us some downloading if the
-  # version is the same.
-  - if [[ "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then
-      wget https://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh;
-    else
-      wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh;
-    fi
-  - bash miniconda.sh -b -p $HOME/miniconda
-  - export PATH="$HOME/miniconda/bin:$PATH"
-  - hash -r
-  - conda config --set always_yes yes --set changeps1 no
-  - conda update -q conda
-  # Useful for debugging any issues with conda
-  - conda info -a
-
-  # Replace dep1 dep2 ... with your dependencies
-  - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION numpy cython
-  - source activate test-environment
-  - pip install -r requirements.txt
-  - python setup.py develop
-
+- sudo apt-get update
+- if [[ "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then wget https://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh
+  -O miniconda.sh; else wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
+  -O miniconda.sh; fi
+- bash miniconda.sh -b -p $HOME/miniconda
+- export PATH="$HOME/miniconda/bin:$PATH"
+- hash -r
+- conda config --set always_yes yes --set changeps1 no
+- conda update -q conda
+- conda info -a
+- conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION numpy cython
+- source activate test-environment
+- pip install -r requirements.txt
+- python setup.py develop
 script:
 - py.test --cov=falafel tests/ -m webtest
-
 deploy:
   provider: pypi
   distributions: sdist bdist_wheel
   user: msyriac
   password:
-    secure: ePiaFLmgsquKa+jL51apTsofEKiZoGPKG+vaa/K+j+FW25karfBcAcSDvGb6ZA3up0au2GKbarX0NYs67PFkdlXowhB1jC3Vy7xN5AC61ZqZamvZW9kdnN+SUzJlcvm9LduGzI66hoj7INLtLnEL6sICcKYh8KF6CqpHoaLuKWVekc97uyXLhQKjMJEisfP54/R7yXJD/qLjM2oNnRpHYw8GOywk4FljXKxTbZQvo3a6ABpTFYbN1o5Q1VU4yRgDD2tliN1D2vn8w0hU+zykzkTgXk5LpQIR3AqTOXK84IqyL43MxHSfaSdysGveHyXsOdhJSDUXXpb7OaCyLbx4niDb+w05f5uzrOgq4GtGUgQqA/ykNSc6tbnpHqtOtOezfZCm6f9Z90hU1IklNyjzIfZOMbserVVDPa5u33RKYCpaXFasLnV4xYoNllD+ERBF1rIVlEs2+E7ngojs/gdxpNGL5WD2M+Mkx3OSNdUhMNhXMg7+QR1fcbFPsHIJDTITedtEQPtC+kDBQR/C6enRrMiApX+dT49FkHhNzCo5s4el77eHIg3gHP0pEccLCont5RDvAQFbZQYkQyevo/cF0zcR6T3Ey+Y0AJYEKMgjKmffpRttBMki+Or9+vCyS+RoXCmTkkNqM+nfxuDLxehpBQnfVXYfiu/UKRSunCL57YU=
+    secure: e4wj1DULCNsNKIOei4ouXKqIXAacOMzgbNkhxU7LetEAh/a4j7DciENPHgp97A/+m6srJEUHhKNubJX/SsDkOB23a+H9M+ksDrCwqLewyeTev2p+mSwEMZg8Cwuu1EXfbCjoSgOjdWVmkDukBUxOnKJGRMStAn1l3rS54BWUUQzW8PDlQSlw9b6OwNZZea3pUV+C88pIZOPtjfImgchdJbYHhnexnENzCThN6reSPYPCRW+d0wf1DIR5GwreTBCxVMCOEd9h1WC4tOqDncMXATRfENufngqQyQFY+fIU+Bqt2/vh1o2XevsUDl3ADtBJJdT1PkEgzq9ABaPnODPRkg0dznSYrvLZdRG0qg5UbBw+xabHdJAda+pUrakv7dHBpjALOgb8TrUl5nMCJHH7/2Z/xV1N72CRTaPKJswdB0F8d7OE1kMrQxHkOwaVUadT6vPhzIF4vD/G0IFmqoxLW6EVsff6r59H4GvkPUAX4IEFuuQfsSwWedUe72dAQZWyevlMhf1ubgaZnk2ScUnl0J0NT8mg+9dCJyqloaEJDf20w1u5Fq0eG0oQCernsKHavk4wQVaoWGC6ad6tNGy++5q/wVvYO9XBFi2wecIv0RoUSjfQ0Dmc0ziW0p/kZG/s0O0VVfbWOdTAE2Erat1ChXTWZLe+7mMUX0Yob1e2tpE=
   on:
     tags: true
     repo: simonsobs/falafel
     python: 3.6
-
 addons:
   apt_packages:
   - gfortran
