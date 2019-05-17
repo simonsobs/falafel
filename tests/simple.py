@@ -54,12 +54,6 @@ talm = alm[0]
 ealm = alm[1]
 balm = alm[2]
 
-def filter_alms(alms,ffunc,lmin,lmax):
-    ells = np.arange(0,lmax+100)
-    filt = np.nan_to_num(ffunc(ells))+ells*0
-    filt[ells<lmin] = 0
-    filt[ells>lmax] = 0
-    return hp.almxfl(alms.copy(),filt)
 
 falm = filter_alms(talm,lambda x: 1./theory.lCl('TT',x),lmin,lmax)
 xalm = filter_alms(talm,lambda x: 1,lmin,lmax)
