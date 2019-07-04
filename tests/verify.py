@@ -10,21 +10,7 @@ import healpy as hp
 from falafel import qe
 
 """
-We will verify lensing reconstruction for the following estimators:
-T-only: TT
-E-only: EE
-P-only: EE + EB
-MV: TT + EE + TE + EB + TB
-
-by:
-1. comparing recon x input with input x input
-2. comparing recon x recon with input x input + N_L from A_L
-3. comparing curl x input with zero
-
-We do this for 1uK-arcmin noise and 1 arcmin beam,
-lmin = 300, lmax_T = 3000, lmax_P = 5000,
-on the full-sky with no mask.
-
+Verify full-sky lensing with flat-sky norm.
 """
 
 import argparse
@@ -92,7 +78,7 @@ theory = cosmology.loadTheorySpectraFromCAMB(thloc,get_dimensionless=False)
 
 # Norm
 Als = {}
-ls,Als['TT'],Als['EE'],Als['EB'],_,Als['TB'],Als['mvpol'],Als['mv'],Als['TE'] = np.loadtxt(args.norm_file,unpack=True)
+ls,Als['TT'],Als['EE'],Als['EB'],Al_te_alt,Als['TB'],Als['mvpol'],Als['mv'],Als['TE'] = np.loadtxt(args.norm_file,unpack=True)
     
 for task in my_tasks:
 
@@ -191,6 +177,7 @@ if rank==0:
         pl.add(fells,theory.gCl('kk',fells),lw=3)
         pl.add(ells,icls,color='k',alpha=0.5)
         pl.add(ls,Als[comb]*ls*(ls+1)/4.,ls="--")
+        if comb=='TE': pl.add(ls,Al_te_alt*ls*(ls+1)/4.,ls="-.")
         pl.add(ls,maps.interp(ells,icls)(ls) + (Als[comb]*ls*(ls+1)/4.))
         pl.add_err(ells,cls[comb]['gauto']['mean'],yerr=cls[comb]['gauto']['err'])
         pl.add_err(ells,cls[comb]['gcross']['mean'],yerr=cls[comb]['gauto']['err'])

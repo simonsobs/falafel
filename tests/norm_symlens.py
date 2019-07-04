@@ -8,8 +8,8 @@ import symlens
 thloc = "/scratch/r/rbond/msyriac/data/sims/alex/v0.4/cosmo2017_10K_acc3"
 theory = cosmology.loadTheorySpectraFromCAMB(thloc,get_dimensionless=False)
 
-def get_norm(uctt,tctt,ucee,tcee,ucte,tcte,ucbb,tcbb,lmin=100,lmax=2000,plot=True):
-    shape,wcs = maps.rect_geometry(width_deg=80.,px_res_arcmin=2.0*3000./lmax)
+def get_norm(uctt,tctt,ucee,tcee,ucte,tcte,ucbb,tcbb,lmin=100,lmax=2000,plot=False,width_deg=20.):
+    shape,wcs = maps.rect_geometry(width_deg=width_deg,px_res_arcmin=2.0*3000./lmax)
     emin = maps.minimum_ell(shape,wcs)
     modlmap = enmap.modlmap(shape,wcs)
     tctt = maps.interp(range(len(tctt)),tctt)(modlmap)

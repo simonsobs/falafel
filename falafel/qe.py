@@ -12,16 +12,18 @@ def filter_alms(alms,ffunc,lmin=None,lmax=None):
 
 def rot2d(fmap):
     """
-    ( f0 + i f1 ) , ( f0 - i f1)
+    If fmap is an [2,...] ndarray with f0=fmap[0],f1=fmap[1],
+    returns [( f0 + i f1 ) , ( f0 - i f1)]
+    e.g. Rotates the map outputs M+ and M- of alm2map into sM and -sM
     """
-    # e.g. Rotates the map outputs M+ and M- of alm2map into sM and -sM
     return np.stack((fmap[0]+fmap[1]*1j,fmap[0]-fmap[1]*1j))
 
 def irot2d(fmap,spin):
     """
-    ( f0 + (-1)^s f1 )/2 , ( f0 - (-1)^s f1 )/(2i)
+    If fmap is an [2,...] ndarray with f0=fmap[0],f1=fmap[1],
+    returns [( f0 + (-1)^s f1 )/2 , ( f0 - (-1)^s f1 )/(2i)]
+    e.g. Rotates the alms +sAlm and -sAlm into inputs a+ and a- for map2alm
     """
-    # e.g. Rotates the alms +sAlm and -sAlm into inputs a+ and a- for map2alm
     return -np.stack(((fmap[0]+((-1)**spin)*fmap[1])/2.,(fmap[0]-((-1)**spin)*fmap[1])/2./1j))
 
 def alm2map_spin(alm,spin_alm,spin_transform,omap):
