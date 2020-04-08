@@ -28,8 +28,8 @@ TT + EE + TE + EB + TB
 """
 
 
-#est = "temp"
-est = "pol"
+est = "temp"
+#est = "pol"
 #est = "mv"
 
 thloc = "/home/msyriac/data/act/theory/cosmo2017_10K_acc3"

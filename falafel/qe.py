@@ -2,6 +2,83 @@ from pixell import curvedsky as cs, enmap
 import numpy as np
 import healpy as hp # needed only for isotropic filtering and alm -> cl, need to make it healpy independent
 
+"""
+
+"""
+
+fudge = True
+
+class pixelization(object):
+    def __init__(self,shape=None,wcs=None,nside=None,dtype=np.float64,iter=0):
+        self.dtype = dtype
+        self.ctype = {np.float32: np.complex64, np.float64: np.complex128}[dtype]
+        if shape is not None:
+            assert wcs is not None
+            assert nside is None
+            self.hpix = False
+            self.shape, self.wcs = shape[-2:],wcs
+        else:
+            assert wcs is None
+            assert nside is not None
+            self.hpix = True
+            self.nside = nside
+            self.iter = iter
+
+
+    def white_noise(self,noise_muK_arcmin,seed=None):
+        """Generate a white noise map
+        """
+        pass
+
+
+    def alm2map_spin(self,alm,spin_alm,spin_transform,ncomp,mlmax):
+        """
+        Returns
+        X(n) = sum_lm  alm_s1 s2_Y_lm(n)
+
+        where s1=spin_alm and s2=spin_transform are different spins.
+
+        alm should be (alm_+|s|, alm_-|s|)
+
+        """
+        # Transform (alm_+|s|, alm_-|s|) to (alm_+, alm_-)
+        ap_am = irot2d(alm,spin=spin_alm)
+        if self.hpix:
+            res = hp.alm2map_spin(ap_am,nside=self.nside,spin=abs(spin_transform),lmax=mlmax)
+        else:
+            omap = enmap.empty((ncomp,)+self.shape[-2:],self.wcs,dtype=self.dtype)
+            res = cs.alm2map(ap_am,omap,spin=abs(spin_transform))
+        # Rotate maps M+ and M- to M_+|s| and M_-|s|
+        # M_+|s| is the first component
+        # M_-|s| is the second component
+        return rot2d(res)
+
+    def alm2map(self,alm,spin,ncomp,mlmax):
+        if self.hpix:
+            if spin!=0: 
+                res = hp.alm2map_spin(alm,nside=self.nside,spin=spin,lmax=mlmax)
+                return res
+            else: return hp.alm2map(alm,nside=self.nside,verbose=False,pol=False)[None]
+        else:
+            omap = enmap.empty((ncomp,)+self.shape,self.wcs,dtype=self.dtype)
+            return cs.alm2map(alm,omap,spin=spin)
+        
+
+    def map2alm(self,imap,lmax):
+        if self.hpix:
+            return hp.map2alm(imap,lmax=lmax,iter=self.iter)
+        else:
+            return cs.map2alm(imap,lmax=lmax)
+
+    def map2alm_spin(self,imap,lmax,spin_alm,spin_transform):
+        dmap = -irot2d(np.stack((imap,imap.conj())),spin=spin_alm).real
+        if self.hpix:
+            res = hp.map2alm_spin(dmap,lmax=lmax,spin=spin_transform)
+            return res
+        else:
+            return cs.map2alm(enmap.enmap(dmap,imap.wcs),spin=spin_transform,lmax=lmax)
+
+
 def filter_alms(alms,ffunc,lmin=None,lmax=None):
     mlmax = hp.Alm.getlmax(alms.size)
     ells = np.arange(0,mlmax)
@@ -26,25 +103,9 @@ def irot2d(fmap,spin):
     """
     return -np.stack(((fmap[0]+((-1)**spin)*fmap[1])/2.,(fmap[0]-((-1)**spin)*fmap[1])/2./1j))
 
-def alm2map_spin(alm,spin_alm,spin_transform,omap):
-    """
-    Returns
-    X(n) = sum_lm  alm_s1 s2_Y_lm(n)
-
-    where s1=spin_alm and s2=spin_transform are different spins.
-
-    alm should be (alm_+|s|, alm_-|s|)
-
-    """
-    # Transform (alm_+|s|, alm_-|s|) to (alm_+, alm_-)
-    ap_am = irot2d(alm,spin=spin_alm)
-    # Rotate maps M+ and M- to M_+|s| and M_-|s|
-    res = rot2d(cs.alm2map(ap_am,omap,spin=abs(spin_transform)))
-    # M_+|s| is the first component
-    # M_-|s| is the second component
-    return res
 
 def almxfl(alm,fl):
+    alm = np.asarray(alm)
     ncomp = alm.shape[0]
     assert ncomp in [1,2,3]
     res = alm.copy()
@@ -53,14 +114,18 @@ def almxfl(alm,fl):
 
 def pol_alms(Ealm,Balm): return np.stack((Ealm+1j*Balm,Ealm-1j*Balm))
 
-def gradient_spin(shape,wcs,alm,mlmax,spin):
+def gradient_spin(px,alm,mlmax,spin):
     """
     Given appropriately Wiener filtered temperature map alms,
     returns a real-space map containing the gradient.
 
     alm should be (alm_+|s|, alm_-|s|)
+
+    px is a pixelization object, initialized like this:
+    px = pixelization(shape=shape,wcs=wcs) # for CAR
+    px = pixelization(nside=nside) # for healpix
     """
-    omap = enmap.zeros((2,)+shape[-2:],wcs)
+
     ells = np.arange(0,mlmax)
     if spin==0:
         fl = np.sqrt(ells*(ells+1.))
@@ -69,61 +134,104 @@ def gradient_spin(shape,wcs,alm,mlmax,spin):
     elif spin==(-2):
         fl = np.sqrt((ells-1)*(ells+2.))
         spin_out = -1 ; comp = 1
-        sign = 1 #!!! this sign is not understood
+        if fudge:
+            sign = 1 #!!! this sign is not understood
+        else:
+            sign = -1
     elif spin==2:
         fl = np.sqrt((ells-2)*(ells+3.))
         spin_out = 3 ; comp = 0
         sign = -1
     fl[ells<2] = 0
     salms = almxfl(alm,fl)
-    return sign*alm2map_spin(salms,spin,spin_out,omap)[comp]
+    return sign*px.alm2map_spin(salms,spin,spin_out,ncomp=2,mlmax=mlmax)[comp]
 
-def deflection_map_to_kappa_curl_alms(dmap,mlmax):
-    res = cs.map2alm(enmap.enmap(-irot2d(np.stack((dmap,dmap.conj())),spin=0).real,dmap.wcs),spin=1,lmax=mlmax)
+def deflection_map_to_kappa_curl_alms(px,dmap,mlmax):
+    """
+    px is a pixelization object, initialized like this:
+    px = pixelization(shape=shape,wcs=wcs) # for CAR
+    px = pixelization(nside=nside) # for healpix
+    """
+
+    res = px.map2alm_spin(dmap,lmax=mlmax,spin_alm=0,spin_transform=1)
     ells = np.arange(0,mlmax)
     fl = np.sqrt(ells*(ells+1.))/2
     res = almxfl(res,fl)
     return res
 
-def qe_spin_temperature_deflection(shape,wcs,Xalm,Yalm,mlmax):
-    grad = gradient_spin(shape,wcs,np.stack((Xalm,Xalm)),mlmax,spin=0)
-    ymap = cs.alm2map(Yalm,enmap.zeros(shape[-2:],wcs))
-    prod = -grad*ymap
-    return enmap.enmap(prod,wcs)
+def qe_spin_temperature_deflection(px,Xalm,Yalm,mlmax):
+    """
+    px is a pixelization object, initialized like this:
+    px = pixelization(shape=shape,wcs=wcs) # for CAR
+    px = pixelization(nside=nside) # for healpix
+    """
 
-def qe_spin_pol_deflection(shape,wcs,X_Ealm,X_Balm,Y_Ealm,Y_Balm,mlmax):
+    grad = gradient_spin(px,np.stack((Xalm,Xalm)),mlmax,spin=0)
+    ymap = px.alm2map(Yalm,spin=0,ncomp=1,mlmax=mlmax)[0]
+    prod = -grad*ymap
+    return prod
+
+def qe_spin_pol_deflection(px,X_Ealm,X_Balm,Y_Ealm,Y_Balm,mlmax):
+    """
+    px is a pixelization object, initialized like this:
+    px = pixelization(shape=shape,wcs=wcs) # for CAR
+    px = pixelization(nside=nside) # for healpix
+    """
+
     palms = pol_alms(X_Ealm,X_Balm)
     # palms is now (Ealm + i Balm, Ealm - i Balm)
     # corresponding to +2 and -2 spin components
-    grad_p2 = gradient_spin(shape,wcs,palms,mlmax,spin=2)
-    grad_m2 = gradient_spin(shape,wcs,palms,mlmax,spin=-2)
+    grad_p2 = gradient_spin(px,palms,mlmax,spin=2)
+    grad_m2 = gradient_spin(px,palms,mlmax,spin=-2)
     # E_alm, B_alm -> Q(n), U(n) -> Q+iU, Q-iU
-    ymap = rot2d(cs.alm2map(np.stack((Y_Ealm,Y_Balm)),enmap.zeros((2,)+shape[-2:],wcs),spin=2))
+    ymap = rot2d(px.alm2map(np.stack((Y_Ealm,Y_Balm)),spin=2,ncomp=2,mlmax=mlmax))
     prod = -grad_m2*ymap[0]-grad_p2*ymap[1]
-    return enmap.enmap(prod,wcs)/2 # !! this factor of 2 is not understood
+    if fudge:
+        return prod/2 # !! this factor of 2 is not understood
+    else:
+        return prod
     
-def qe_temperature_only(shape,wcs,Xalm,Yalm,mlmax):
-    dmap = qe_spin_temperature_deflection(shape,wcs,Xalm,Yalm,mlmax)
-    return deflection_map_to_kappa_curl_alms(dmap,mlmax)
+def qe_temperature_only(px,Xalm,Yalm,mlmax):
+    """
+    px is a pixelization object, initialized like this:
+    px = pixelization(shape=shape,wcs=wcs) # for CAR
+    px = pixelization(nside=nside) # for healpix
+    """
 
-def qe_pol_only(shape,wcs,X_Ealm,X_Balm,Y_Ealm,Y_Balm,mlmax):
-    dmap = qe_spin_pol_deflection(shape,wcs,X_Ealm,X_Balm,Y_Ealm,Y_Balm,mlmax)
-    return deflection_map_to_kappa_curl_alms(dmap,mlmax)
+    dmap = qe_spin_temperature_deflection(px,Xalm,Yalm,mlmax)
+    return deflection_map_to_kappa_curl_alms(px,dmap,mlmax)
 
-def qe_mv(shape,wcs,X_Talm,X_Ealm,X_Balm,Y_Talm,Y_Ealm,Y_Balm,mlmax):
-    dmap_t = qe_spin_temperature_deflection(shape,wcs,X_Talm,Y_Talm,mlmax)
-    dmap_p = qe_spin_pol_deflection(shape,wcs,X_Ealm,X_Balm,Y_Ealm,Y_Balm,mlmax)
-    return deflection_map_to_kappa_curl_alms(dmap_t+dmap_p,mlmax),dmap_t,dmap_p
+def qe_pol_only(px,X_Ealm,X_Balm,Y_Ealm,Y_Balm,mlmax):
+    """
+    px is a pixelization object, initialized like this:
+    px = pixelization(shape=shape,wcs=wcs) # for CAR
+    px = pixelization(nside=nside) # for healpix
+    """
+    dmap = qe_spin_pol_deflection(px,X_Ealm,X_Balm,Y_Ealm,Y_Balm,mlmax)
+    return deflection_map_to_kappa_curl_alms(px,dmap,mlmax)
+
+def qe_mv(px,X_Talm,X_Ealm,X_Balm,Y_Talm,Y_Ealm,Y_Balm,mlmax):
+    """
+    px is a pixelization object, initialized like this:
+    px = pixelization(shape=shape,wcs=wcs) # for CAR
+    px = pixelization(nside=nside) # for healpix
+    """
+    dmap_t = qe_spin_temperature_deflection(px,X_Talm,Y_Talm,mlmax)
+    dmap_p = qe_spin_pol_deflection(px,X_Ealm,X_Balm,Y_Ealm,Y_Balm,mlmax)
+    return deflection_map_to_kappa_curl_alms(px,dmap_t+dmap_p,mlmax),dmap_t,dmap_p
 
 
-def qe_all(shape,wcs,theory_func,mlmax,fTalm=None,fEalm=None,fBalm=None,estimators=['TT','TE','EE','EB','TB','mv','mvpol'],xfTalm=None,xfEalm=None,xfBalm=None):
+def qe_all(px,theory_func,mlmax,fTalm=None,fEalm=None,fBalm=None,estimators=['TT','TE','EE','EB','TB','mv','mvpol'],xfTalm=None,xfEalm=None,xfBalm=None):
     """
     Inputs are Cinv filtered alms.
+    px is a pixelization object, initialized like this:
+    px = pixelization(shape=shape,wcs=wcs) # for CAR
+    px = pixelization(nside=nside) # for healpix
     """
     ests = estimators
     ells = np.arange(mlmax)
     th = lambda x,y: theory_func(x,y)
-    kfunc = lambda x: deflection_map_to_kappa_curl_alms(x,mlmax)
+    kfunc = lambda x: deflection_map_to_kappa_curl_alms(px,x,mlmax)
 
     if xfTalm is None:
         if fTalm is not None: xfTalm = fTalm.copy()
@@ -160,8 +268,8 @@ def qe_all(shape,wcs,theory_func,mlmax,fTalm=None,fEalm=None,fBalm=None,estimato
                 acache[name] = mixing(['BB'],[xfBalm])
             return acache[name]
 
-    test = lambda x: qe_spin_temperature_deflection(shape,wcs,x,fTalm,mlmax)
-    pest = lambda u,v,w,x: qe_spin_pol_deflection(shape,wcs,u,v,w,x,mlmax)
+    test = lambda x: qe_spin_temperature_deflection(px,x,fTalm,mlmax)
+    pest = lambda u,v,w,x: qe_spin_pol_deflection(px,u,v,w,x,mlmax)
     try: zero = fTalm*0
     except: zero = fEalm*0
 
@@ -203,6 +311,7 @@ def qe_all(shape,wcs,theory_func,mlmax,fTalm=None,fEalm=None,fBalm=None,estimato
     if 'TB' in ests: results['TB'] = kfunc(dmap('Ptb'))
     if 'mvpol' in ests: results['mvpol'] = kfunc(dmap('Peb'))
     if 'mv' in ests: results['mv'] = kfunc(dmap('Pteb')+dmap('Tte'))
+
     return results
 
 

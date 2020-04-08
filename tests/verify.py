@@ -33,7 +33,8 @@ dtype = np.complex128 if args.dtype==64 else np.complex64
 
 # Resolution
 res = args.res
-shape,wcs = enmap.fullsky_geometry(res=np.deg2rad(res/60.),proj="car")
+shape,iwcs = enmap.fullsky_geometry(res=np.deg2rad(res/60.),proj="car")
+wcs = enmap.zeros(shape,iwcs)[...,::-1].wcs
 mlmax = max(args.lmaxt,args.lmaxp) + 500
 
 # Sim location
