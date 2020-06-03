@@ -186,6 +186,9 @@ def qe_spin_pol_deflection(px,X_Ealm,X_Balm,Y_Ealm,Y_Balm,mlmax):
     # E_alm, B_alm -> Q(n), U(n) -> Q+iU, Q-iU
     ymap = rot2d(px.alm2map(np.stack((Y_Ealm,Y_Balm)),spin=2,ncomp=2,mlmax=mlmax))
     prod = -grad_m2*ymap[0]-grad_p2*ymap[1]
+    #prod = enmap.samewcs(prod,ymap[0])
+    if px.hpix == False:
+        prod = enmap.ndmap(prod,px.wcs)
     if fudge:
         return prod/2 # !! this factor of 2 is not understood
     else:
@@ -221,7 +224,7 @@ def qe_mv(px,X_Talm,X_Ealm,X_Balm,Y_Talm,Y_Ealm,Y_Balm,mlmax):
     return deflection_map_to_kappa_curl_alms(px,dmap_t+dmap_p,mlmax),dmap_t,dmap_p
 
 
-def qe_all(px,theory_func,mlmax,fTalm=None,fEalm=None,fBalm=None,estimators=['TT','TE','EE','EB','TB','mv','mvpol'],xfTalm=None,xfEalm=None,xfBalm=None):
+def qe_all(px,theory_func,theory_crossfunc,mlmax,fTalm=None,fEalm=None,fBalm=None,estimators=['TT','TE','EE','EB','TB','mv','mvpol'],xfTalm=None,xfEalm=None,xfBalm=None):
     """
     Inputs are Cinv filtered alms.
     px is a pixelization object, initialized like this:
@@ -231,6 +234,7 @@ def qe_all(px,theory_func,mlmax,fTalm=None,fEalm=None,fBalm=None,estimators=['TT
     ests = estimators
     ells = np.arange(mlmax)
     th = lambda x,y: theory_func(x,y)
+    th_cross=lambda x,y: theory_crossfunc(x,y)
     kfunc = lambda x: deflection_map_to_kappa_curl_alms(px,x,mlmax)
 
     if xfTalm is None:
@@ -246,7 +250,11 @@ def qe_all(px,theory_func,mlmax,fTalm=None,fEalm=None,fBalm=None,estimators=['TT
 
     def mixing(list_spec,list_alms):
         res = 0
-        for spec,alm in zip(list_spec,list_alms): res = res + filter_alms(alm,lambda x: th(spec,x))
+        for spec,alm in zip(list_spec,list_alms):
+            if spec=='TT':
+                res = res + filter_alms(alm,lambda x: th_cross(spec,x))
+            else:
+                res = res + filter_alms(alm,lambda x: th(spec,x))
         return res
 
     def xalm(name):
@@ -286,6 +294,7 @@ def qe_all(px,theory_func,mlmax,fTalm=None,fEalm=None,fBalm=None,estimators=['TT
             if name=='Pte0': dcache[name] = pest(xalm("e_t0"),zero,fEalm,zero) # Another weird one for TE
             if name=='Peb0': dcache[name] = pest(xalm("e0"),zero,zero,fBalm) # Another weird one for EB
             if name=='Pteb': dcache[name] = pest(xalm("e"),zero,fEalm,fBalm)
+
             return dcache[name]
 
     """
@@ -316,14 +325,17 @@ def qe_all(px,theory_func,mlmax,fTalm=None,fEalm=None,fBalm=None,estimators=['TT
 
 
 
-def symlens_norm(uctt,tctt,ucee,tcee,ucte,tcte,ucbb,tcbb,lmin=100,lmax=2000,plot=True):
+def symlens_norm(uctt,tctt,ucee,tcee,ucte,tcte,ucbb,tcbb,lmin=100,lmax=2000,plot=True,estimator="hu_ok"):
     import symlens
     from orphics import maps,stats,io
     shape,wcs = maps.rect_geometry(width_deg=80.,px_res_arcmin=2.0*3000./lmax)
     emin = maps.minimum_ell(shape,wcs)
     modlmap = enmap.modlmap(shape,wcs)
     tctt = maps.interp(range(len(tctt)),tctt)(modlmap)
+    ells=np.arange(len(uctt))
+    ductt=np.gradient(np.log(uctt),np.log(ells))
     uctt = maps.interp(range(len(uctt)),uctt)(modlmap)
+    ductt=maps.interp(range(len(ductt)),ductt)(modlmap)
     tcee = maps.interp(range(len(tcee)),tcee)(modlmap)
     ucee = maps.interp(range(len(ucee)),ucee)(modlmap)
     tcbb = maps.interp(range(len(tcbb)),tcbb)(modlmap)
@@ -350,7 +362,18 @@ def symlens_norm(uctt,tctt,ucee,tcee,ucte,tcte,ucbb,tcbb,lmin=100,lmax=2000,plot
     alinv_mv = 0.
     alinv_mv_pol = 0.
     for pol in polcombs:
-        Al = symlens.A_l(shape, wcs, feed_dict=feed_dict, estimator="hu_ok", XY=pol, xmask=tmask, ymask=tmask)
+        if estimator=="hu_ok" or estimator=="hdv":
+            Al = symlens.A_l(shape, wcs, feed_dict=feed_dict, estimator=estimator, XY=pol, xmask=tmask, ymask=tmask)
+        elif estimator=="shear":
+            ells=np.arange(len(uctt))
+            feed_dict['duC_T_T'] =ductt
+            Al = symlens.A_l(shape, wcs, feed_dict=feed_dict, estimator=estimator, XY="TT", xmask=tmask, ymask=tmask)
+            Ns=symlens.qe.N_l(shape, wcs, feed_dict=feed_dict, estimator=estimator, XY="TT", xmask=tmask, ymask=tmask, Al=Al, field_names=None, kmask=None)
+            cents,Ns1d = binner.bin(Ns)
+            ls = np.arange(0,cents.max(),1)
+            Ns=np.interp(ls,cents,Ns1d*cents**2.)/ls**2.
+            Ns[ls<1] = 0
+            
         cents,Al1d = binner.bin(Al)
         ls = np.arange(0,cents.max(),1)
         Als[pol] = np.interp(ls,cents,Al1d*cents**2.)/ls**2.
@@ -379,5 +402,8 @@ def symlens_norm(uctt,tctt,ucee,tcee,ucte,tcte,ucbb,tcbb,lmin=100,lmax=2000,plot
     cents,Al1d = binner.bin(Al_te_hdv)
     Al_te_hdv = np.interp(ls,cents,Al1d*cents**2.)/ls**2.
     Al_te_hdv[ls<1] = 0
-        
-    return ls,Als,al_mv_pol,al_mv,Al_te_hdv
+    
+    if estimator=="shear":
+        return ls,Als,Ns
+    else:
+        return ls,Als,al_mv_pol,al_mv,Al_te_hdv
