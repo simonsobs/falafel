@@ -1,6 +1,6 @@
 from pixell import curvedsky as cs, enmap
 import numpy as np
-import healpy as hp # needed only for isotropic filtering and alm -> cl, need to make it healpy independent
+import healpy as hp
 
 """
 
