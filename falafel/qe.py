@@ -362,6 +362,41 @@ def qe_mask(px,theory_func,theory_crossfunc,mlmax,fTalm=None,fEalm=None,fBalm=No
     
     return ttalmsp2
 
+def qe_pointsources(px,theory_func,theory_crossfunc,mlmax,fTalm=None,fEalm=None,fBalm=None,estimators=['TT','TE','EE','EB','TB','mv','mvpol'],xfTalm=None,xfEalm=None,xfBalm=None):
+    """
+    Inputs are Cinv filtered alms.
+    px is a pixelization object, initialized like this:
+    px = pixelization(shape=shape,wcs=wcs) # for CAR
+    px = pixelization(nside=nside) # for healpix
+    output: Point source estimator
+    """
+    ests = estimators
+    ells = np.arange(mlmax)
+    th = lambda x,y: theory_func(x,y)
+    th_cross=lambda x,y: theory_crossfunc(x,y)
+    kfunc = lambda x: deflection_map_to_kappa_curl_alms(px,x,mlmax)
+    omap = enmap.zeros((2,)+px.shape,px.wcs) #load empty map with SO map wcs and shape
+
+    if xfTalm is None:
+        if fTalm is not None: xfTalm = fTalm.copy()
+    if xfEalm is None:
+        if fEalm is not None: xfEalm = fEalm.copy()
+    if xfBalm is None:
+        if fBalm is not None: xfBalm = fBalm.copy()
+    rmap=px.alm2map_spin(np.stack((fTalm,fTalm)),0,0,ncomp=2,mlmax=mlmax)
+    #multiply the two fields together
+    prodmap=rmap**2
+    prodmap=enmap.samewcs(prodmap,omap)
+    realsp=prodmap[0] #spin +0 real space  field
+    
+
+
+    res=px.map2alm_spin(realsp,mlmax,0,0)
+
+    #spin 0 salm 
+    salm=0.5*res[0] 
+    
+    return salm
 
 def symlens_norm(uctt,tctt,ucee,tcee,ucte,tcte,ucbb,tcbb,lmin=100,lmax=2000,plot=True,estimator="hu_ok"):
     import symlens
