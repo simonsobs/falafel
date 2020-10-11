@@ -103,6 +103,12 @@ def irot2d(fmap,spin):
     """
     return -np.stack(((fmap[0]+((-1)**spin)*fmap[1])/2.,(fmap[0]-((-1)**spin)*fmap[1])/2./1j))
 
+def rot2dalm(fmap,spin):
+    #inverse operation of irot2d
+    ps=(fmap[0]+1j*fmap[1])
+    ms=(-1)**spin*(fmap[0]-1j*fmap[1])
+    return -np.stack((ps,ms))
+
 
 def almxfl(alm,fl):
     alm = np.asarray(alm)
@@ -362,6 +368,53 @@ def qe_mask(px,theory_func,theory_crossfunc,mlmax,fTalm=None,fEalm=None,fBalm=No
     
     return ttalmsp2
 
+def rot2dalm(fmap,spin):
+    #inverse operation of irot2d
+    ps=(fmap[0]+1j*fmap[1])
+    ms=(-1)**spin*(fmap[0]-1j*fmap[1])
+    return -np.stack((ps,ms))
+
+
+def qe_shear(px,mlmax,Talm=None,fTalm=None):
+    """
+    Inputs are Cinv filtered alms.
+    px is a pixelization object, initialized like this:
+    px = pixelization(shape=shape,wcs=wcs) # for CAR
+    px = pixelization(nside=nside) # for healpix
+    output: Mask estimator
+    """
+    ells = np.arange(mlmax)
+    omap = enmap.zeros((2,)+px.shape,px.wcs) #load empty map with SO map wcs and shape
+    #prepare temperature map
+    rmapT=px.alm2map(np.stack((Talm,Talm)),spin=0,ncomp=1,mlmax=mlmax)[0]
+
+
+    #find tbarf
+    t_alm=hp.almxfl(fTalm,np.sqrt((ells-1.)*ells*(ells+1.)*(ells+2.)))
+    alms=np.stack((t_alm,t_alm))
+    rmap=px.alm2map_spin(alms,0,2,ncomp=2,mlmax=mlmax)   #same as 2 2
+    #multiply the two fields together
+    prodmap=rmap*rmapT
+    prodmap=enmap.samewcs(prodmap,omap)
+    realsp2=prodmap[0] #spin +2 real space real space field
+    realsm2=prodmap[1] #spin -2 real space real space field
+    realsp2 = enmap.samewcs(realsp2,omap)
+    realsm2=enmap.samewcs(realsm2,omap)
+
+
+    #convert the above spin2 fields to spin pm 2 alms
+    res1 = px.map2alm_spin(realsp2,mlmax,2,2) #will return pm2 
+    res2= px.map2alm_spin(realsm2,mlmax,-2,2) #will return pm2
+
+    #spin 2 ylm 
+    ttalmsp2=rot2dalm(res1,2)[0] #pick up the spin 2 alm of the first one
+    ttalmsm2=rot2dalm(res1,2)[1] #pick up the spin -2 alm of the second one
+    shear_alm=ttalmsp2+ttalmsm2
+
+    
+    
+    return shear_alm
+
 def qe_pointsources(px,theory_func,theory_crossfunc,mlmax,fTalm=None,fEalm=None,fBalm=None,estimators=['TT','TE','EE','EB','TB','mv','mvpol'],xfTalm=None,xfEalm=None,xfBalm=None):
     """
     Inputs are Cinv filtered alms.
@@ -438,14 +491,21 @@ def symlens_norm(uctt,tctt,ucee,tcee,ucte,tcte,ucbb,tcbb,lmin=100,lmax=2000,plot
         if estimator=="hu_ok" or estimator=="hdv":
             Al = symlens.A_l(shape, wcs, feed_dict=feed_dict, estimator=estimator, XY=pol, xmask=tmask, ymask=tmask)
         elif estimator=="shear":
+            print("calculating shear norm and noise")
             ells=np.arange(len(uctt))
             feed_dict['duC_T_T'] =ductt
             Al = symlens.A_l(shape, wcs, feed_dict=feed_dict, estimator=estimator, XY="TT", xmask=tmask, ymask=tmask)
-            Noise=symlens.qe.N_l(shape, wcs, feed_dict=feed_dict, estimator=estimator, XY="TT", xmask=tmask, ymask=tmask, field_names=None, kmask=None)
+            Noise=symlens.qe.N_l(shape, wcs, feed_dict=feed_dict, estimator=estimator, XY="TT", xmask=tmask, ymask=tmask,Al=Al,field_names=None, kmask=None)
             cents,Ns1d = binner.bin(Noise)
             ls = np.arange(0,cents.max(),1)
             Ns=np.interp(ls,cents,Ns1d*cents**2.)/ls**2.
             Ns[ls<1] = 0
+  
+            cents,Al1d = binner.bin(Al)
+            Als= np.interp(ls,cents,Al1d*cents**2.)/ls**2.
+            Als[ls<1] = 0
+
+            return ls,Als,Ns
             
         cents,Al1d = binner.bin(Al)
         ls = np.arange(0,cents.max(),1)
@@ -476,7 +536,7 @@ def symlens_norm(uctt,tctt,ucee,tcee,ucte,tcte,ucbb,tcbb,lmin=100,lmax=2000,plot
     Al_te_hdv = np.interp(ls,cents,Al1d*cents**2.)/ls**2.
     Al_te_hdv[ls<1] = 0
     
-    if estimator=="shear":
-        return ls,Als,Ns
-    else:
-        return ls,Als,al_mv_pol,al_mv,Al_te_hdv
+    
+
+    
+    return ls,Als,al_mv_pol,al_mv,Al_te_hdv
