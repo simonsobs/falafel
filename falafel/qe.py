@@ -162,7 +162,7 @@ def deflection_map_to_kappa_curl_alms(px,dmap,mlmax):
 def qe_spin_temperature_deflection(px,Xalm,Yalm,mlmax):
     """
     px is a pixelization object, initialized like this:
-    px = pixelization(shape=shape,wcs=wcs) # for CAR
+    px = pixelization(shape=shape,wq    cs=wcs) # for CAR
     px = pixelization(nside=nside) # for healpix
     """
 
@@ -384,6 +384,7 @@ def qe_pointsources(px,theory_func,theory_crossfunc,mlmax,fTalm=None,fEalm=None,
     if xfBalm is None:
         if fBalm is not None: xfBalm = fBalm.copy()
     rmap=px.alm2map_spin(np.stack((fTalm,fTalm)),0,0,ncomp=2,mlmax=mlmax)
+  
     #multiply the two fields together
     prodmap=rmap**2
     prodmap=enmap.samewcs(prodmap,omap)
@@ -438,14 +439,21 @@ def symlens_norm(uctt,tctt,ucee,tcee,ucte,tcte,ucbb,tcbb,lmin=100,lmax=2000,plot
         if estimator=="hu_ok" or estimator=="hdv":
             Al = symlens.A_l(shape, wcs, feed_dict=feed_dict, estimator=estimator, XY=pol, xmask=tmask, ymask=tmask)
         elif estimator=="shear":
+            print("calculating shear norm and noise")
             ells=np.arange(len(uctt))
             feed_dict['duC_T_T'] =ductt
             Al = symlens.A_l(shape, wcs, feed_dict=feed_dict, estimator=estimator, XY="TT", xmask=tmask, ymask=tmask)
-            Noise=symlens.qe.N_l(shape, wcs, feed_dict=feed_dict, estimator=estimator, XY="TT", xmask=tmask, ymask=tmask, field_names=None, kmask=None)
+            Noise=symlens.qe.N_l(shape, wcs, feed_dict=feed_dict, estimator=estimator, XY="TT", xmask=tmask, ymask=tmask,Al=Al,field_names=None, kmask=None)
             cents,Ns1d = binner.bin(Noise)
             ls = np.arange(0,cents.max(),1)
             Ns=np.interp(ls,cents,Ns1d*cents**2.)/ls**2.
             Ns[ls<1] = 0
+  
+            cents,Al1d = binner.bin(Al)
+            Als= np.interp(ls,cents,Al1d*cents**2.)/ls**2.
+            Als[ls<1] = 0
+
+            return ls,Als,Ns
             
         cents,Al1d = binner.bin(Al)
         ls = np.arange(0,cents.max(),1)
@@ -476,7 +484,7 @@ def symlens_norm(uctt,tctt,ucee,tcee,ucte,tcte,ucbb,tcbb,lmin=100,lmax=2000,plot
     Al_te_hdv = np.interp(ls,cents,Al1d*cents**2.)/ls**2.
     Al_te_hdv[ls<1] = 0
     
-    if estimator=="shear":
-        return ls,Als,Ns
-    else:
-        return ls,Als,al_mv_pol,al_mv,Al_te_hdv
+    
+
+    
+    return ls,Als,al_mv_pol,al_mv,Al_te_hdv
