@@ -168,7 +168,7 @@ def deflection_map_to_kappa_curl_alms(px,dmap,mlmax):
 def qe_spin_temperature_deflection(px,Xalm,Yalm,mlmax):
     """
     px is a pixelization object, initialized like this:
-    px = pixelization(shape=shape,wq    cs=wcs) # for CAR
+    px = pixelization(shape=shape,wcs=wcs) # for CAR
     px = pixelization(nside=nside) # for healpix
     """
 
@@ -335,7 +335,7 @@ def qe_mask(px,theory_func,theory_crossfunc,mlmax,fTalm=None,fEalm=None,fBalm=No
     px is a pixelization object, initialized like this:
     px = pixelization(shape=shape,wcs=wcs) # for CAR
     px = pixelization(nside=nside) # for healpix
-    output: Mask estimator
+    output: Mask estimator alms
     """
     ests = estimators
     ells = np.arange(mlmax)
@@ -377,11 +377,10 @@ def rot2dalm(fmap,spin):
 
 def qe_shear(px,mlmax,Talm=None,fTalm=None):
     """
-    Inputs are Cinv filtered alms.
     px is a pixelization object, initialized like this:
     px = pixelization(shape=shape,wcs=wcs) # for CAR
     px = pixelization(nside=nside) # for healpix
-    output: Mask estimator
+    output: curved sky shear estimator
     """
     ells = np.arange(mlmax)
     omap = enmap.zeros((2,)+px.shape,px.wcs) #load empty map with SO map wcs and shape
@@ -421,7 +420,7 @@ def qe_pointsources(px,theory_func,theory_crossfunc,mlmax,fTalm=None,fEalm=None,
     px is a pixelization object, initialized like this:
     px = pixelization(shape=shape,wcs=wcs) # for CAR
     px = pixelization(nside=nside) # for healpix
-    output: Point source estimator
+    output: Point source estimator alms
     """
     ests = estimators
     ells = np.arange(mlmax)
@@ -437,7 +436,6 @@ def qe_pointsources(px,theory_func,theory_crossfunc,mlmax,fTalm=None,fEalm=None,
     if xfBalm is None:
         if fBalm is not None: xfBalm = fBalm.copy()
     rmap=px.alm2map_spin(np.stack((fTalm,fTalm)),0,0,ncomp=2,mlmax=mlmax)
-  
     #multiply the two fields together
     prodmap=rmap**2
     prodmap=enmap.samewcs(prodmap,omap)
