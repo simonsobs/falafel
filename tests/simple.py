@@ -55,26 +55,27 @@ ealm = alm[1]
 balm = alm[2]
 
 
-falm = filter_alms(talm,lambda x: 1./theory.lCl('TT',x),lmin,lmax)
-xalm = filter_alms(talm,lambda x: 1,lmin,lmax)
-X_Ealm = filter_alms(ealm,lambda x: 1,lmin,lmax)
-X_Balm = filter_alms(balm,lambda x: 1,lmin,lmax)
-Y_Ealm = filter_alms(ealm,lambda x: 1./theory.lCl('EE',x),lmin,lmax)
-Y_Balm = filter_alms(balm,lambda x: 1./theory.lCl('BB',x),lmin,lmax)
+falm = qe.filter_alms(talm,lambda x: 1./theory.lCl('TT',x),lmin,lmax)
+xalm = qe.filter_alms(talm,lambda x: 1,lmin,lmax)
+X_Ealm = qe.filter_alms(ealm,lambda x: 1,lmin,lmax)
+X_Balm = qe.filter_alms(balm,lambda x: 1,lmin,lmax)
+Y_Ealm = qe.filter_alms(ealm,lambda x: 1./theory.lCl('EE',x),lmin,lmax)
+Y_Balm = qe.filter_alms(balm,lambda x: 1./theory.lCl('BB',x),lmin,lmax)
 
+px = qe.pixelization(shape,wcs)
 
 if est=="temp":
-    with bench.show("recon tt"): recon = qe.qe_temperature_only(shape,wcs,xalm,falm,lmax,mlmax)[0]
+    with bench.show("recon tt"): recon = qe.qe_temperature_only(px,xalm,falm,mlmax)[0]
 elif est=="pol":
-    with bench.show("recon pol"): recon = qe.qe_pol_only(shape,wcs,X_Ealm,X_Balm,Y_Ealm,Y_Balm,lmax,mlmax)[0]
-    with bench.show("recon pol"): recon_ee = qe.qe_pol_only(shape,wcs,X_Ealm,X_Balm*0,Y_Ealm,Y_Balm*0,lmax,mlmax)[0]
+    with bench.show("recon pol"): recon = qe.qe_pol_only(px,X_Ealm,X_Balm,Y_Ealm,Y_Balm,mlmax)[0]
+    with bench.show("recon pol"): recon_ee = qe.qe_pol_only(px,X_Ealm,X_Balm*0,Y_Ealm,Y_Balm*0,mlmax)[0]
 elif est=="mv":
-    with bench.show("recon mv"): recon = qe.qe_mv(shape,wcs,xalm,X_Ealm,X_Balm,falm,Y_Ealm,Y_Balm,lmax,mlmax)[0]
+    with bench.show("recon mv"): recon = qe.qe_mv(px,xalm,X_Ealm,X_Balm,falm,Y_Ealm,Y_Balm,mlmax)[0]
 
 palm = maps.change_alm_lmax(hp.read_alm(sim_location+"fullskyPhi_alm_%s.fits" % (sindex)),mlmax)
 ikalm = lensing.phi_to_kappa(palm)
 
-ls,Als,Als_ee,Als_eb,Als_te,Als_tb,al_mv_pol,al_mv = np.loadtxt("norm.txt",unpack=True)
+ls,Als,Als_ee,Als_eb,Als_te,Als_tb,al_mv_pol,al_mv,Al_te_hdv = np.loadtxt("norm.txt",unpack=True)
 if est=="pol":
     Als = al_mv_pol # !!
     kalms_eb = hp.almxfl(recon-recon_ee,Als_eb)
@@ -92,7 +93,7 @@ if est=='pol':
     
 
 pl = io.Plotter(xyscale='loglog')#lin',scalefn=lambda x: x)
-ells = range(len(icls))
+ells = np.arange(len(icls))
 if est=='pol':
     pl.add(ells,acls_eb,label='EB')
     pl.add(ells,cls_eb,label='EB',marker='o')
