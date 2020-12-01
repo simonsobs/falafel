@@ -341,7 +341,7 @@ def qe_mask(px,theory_func,theory_crossfunc,mlmax,fTalm=None,fEalm=None,fBalm=No
     th = lambda x,y: theory_func(x,y)
     th_cross=lambda x,y: theory_crossfunc(x,y)
     kfunc = lambda x: deflection_map_to_kappa_curl_alms(px,x,mlmax)
-    omap = enmap.zeros((2,)+px.shape,px.wcs) #load empty map with SO map wcs and shape
+    omap = enmap.zeros((2,)+px.shape,px.wcs)
 
     if xfTalm is None:
         if fTalm is not None: xfTalm = fTalm.copy()
@@ -357,8 +357,6 @@ def qe_mask(px,theory_func,theory_crossfunc,mlmax,fTalm=None,fEalm=None,fBalm=No
     prodmap=rmap*rmapT
     prodmap=enmap.samewcs(prodmap,omap)
     realsp=prodmap[0] #spin +0 real space  field
-    
-
 
     res=px.map2alm_spin(realsp,mlmax,0,0)
 
@@ -366,13 +364,6 @@ def qe_mask(px,theory_func,theory_crossfunc,mlmax,fTalm=None,fEalm=None,fBalm=No
     ttalmsp2=res[0] 
     
     return ttalmsp2
-
-def rot2dalm(fmap,spin):
-    #inverse operation of irot2d
-    ps=(fmap[0]+1j*fmap[1])
-    ms=(-1)**spin*(fmap[0]-1j*fmap[1])
-    return -np.stack((ps,ms))
-
 
 def qe_shear(px,mlmax,Talm=None,fTalm=None):
     """
@@ -382,10 +373,9 @@ def qe_shear(px,mlmax,Talm=None,fTalm=None):
     output: curved sky shear estimator
     """
     ells = np.arange(mlmax)
-    omap = enmap.zeros((2,)+px.shape,px.wcs) #load empty map with SO map wcs and shape
+    omap = enmap.zeros((2,)+px.shape,px.wcs)
     #prepare temperature map
     rmapT=px.alm2map(np.stack((Talm,Talm)),spin=0,ncomp=1,mlmax=mlmax)[0]
-
 
     #find tbarf
     t_alm=hp.almxfl(fTalm,np.sqrt((ells-1.)*ells*(ells+1.)*(ells+2.)))
@@ -399,7 +389,6 @@ def qe_shear(px,mlmax,Talm=None,fTalm=None):
     realsp2 = enmap.samewcs(realsp2,omap)
     realsm2=enmap.samewcs(realsm2,omap)
 
-
     #convert the above spin2 fields to spin pm 2 alms
     res1 = px.map2alm_spin(realsp2,mlmax,2,2) #will return pm2 
     res2= px.map2alm_spin(realsm2,mlmax,-2,2) #will return pm2
@@ -408,9 +397,6 @@ def qe_shear(px,mlmax,Talm=None,fTalm=None):
     ttalmsp2=rot2dalm(res1,2)[0] #pick up the spin 2 alm of the first one
     ttalmsm2=rot2dalm(res1,2)[1] #pick up the spin -2 alm of the second one
     shear_alm=ttalmsp2+ttalmsm2
-
-    
-    
     return shear_alm
 
 def qe_pointsources(px,theory_func,theory_crossfunc,mlmax,fTalm=None,fEalm=None,fBalm=None,estimators=['TT','TE','EE','EB','TB','mv','mvpol'],xfTalm=None,xfEalm=None,xfBalm=None):
@@ -439,8 +425,6 @@ def qe_pointsources(px,theory_func,theory_crossfunc,mlmax,fTalm=None,fEalm=None,
     prodmap=rmap**2
     prodmap=enmap.samewcs(prodmap,omap)
     realsp=prodmap[0] #spin +0 real space  field
-    
-
 
     res=px.map2alm_spin(realsp,mlmax,0,0)
 
