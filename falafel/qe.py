@@ -193,8 +193,8 @@ def qe_spin_pol_deflection(px,X_Ealm,X_Balm,Y_Ealm,Y_Balm,mlmax):
     ymap = rot2d(px.alm2map(np.stack((Y_Ealm,Y_Balm)),spin=2,ncomp=2,mlmax=mlmax))
     prod = -grad_m2*ymap[0]-grad_p2*ymap[1]
     #prod = enmap.samewcs(prod,ymap[0])
-    if px.hpix == False:
-        prod = enmap.ndmap(prod,px.wcs)
+    if not(px.hpix):
+        prod = enmap.enmap(prod,px.wcs)
     if fudge:
         return prod/2 # !! this factor of 2 is not understood
     else:
