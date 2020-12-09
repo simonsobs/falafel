@@ -20,6 +20,8 @@ This library allows you to reconstruct CMB lensing maps on cut skies. It is SHT-
 which allows it to be fast and memory efficient. The implementation of the lensing quadratic estimators closely
 follows that in the Planck 2018 lensing analysis by Julien Carron and others. SHT-based estimators for shear, point source and mask hardening have also been implemented by Frank Qu.
 
+Only the unnormalized quadratic estimate is provided. For the full-sky normalization for various estimators, we recommend tempura (https://github.com/simonsobs/tempura).
+
 
 * Free software: BSD license
 * Documentation: https://falafel.readthedocs.io. (in progress)
