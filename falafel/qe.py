@@ -335,7 +335,7 @@ def qe_mask(px,theory_func,theory_crossfunc,mlmax,fTalm=None,fEalm=None,fBalm=No
     px is a pixelization object, initialized like this:
     px = pixelization(shape=shape,wcs=wcs) # for CAR
     px = pixelization(nside=nside) # for healpix
-    output: Mask estimator
+    output: Mask estimator alms
     """
     ests = estimators
     ells = np.arange(mlmax)
@@ -368,27 +368,18 @@ def qe_mask(px,theory_func,theory_crossfunc,mlmax,fTalm=None,fEalm=None,fBalm=No
     
     return ttalmsp2
 
-def rot2dalm(fmap,spin):
-    #inverse operation of irot2d
-    ps=(fmap[0]+1j*fmap[1])
-    ms=(-1)**spin*(fmap[0]-1j*fmap[1])
-    return -np.stack((ps,ms))
-
 
 def qe_shear(px,mlmax,Talm=None,fTalm=None):
     """
-    Inputs are Cinv filtered alms.
     px is a pixelization object, initialized like this:
     px = pixelization(shape=shape,wcs=wcs) # for CAR
     px = pixelization(nside=nside) # for healpix
-    output: Mask estimator
+    output: curved sky shear estimator
     """
     ells = np.arange(mlmax)
     omap = enmap.zeros((2,)+px.shape,px.wcs) #load empty map with SO map wcs and shape
     #prepare temperature map
     rmapT=px.alm2map(np.stack((Talm,Talm)),spin=0,ncomp=1,mlmax=mlmax)[0]
-
-
     #find tbarf
     t_alm=hp.almxfl(fTalm,np.sqrt((ells-1.)*ells*(ells+1.)*(ells+2.)))
     alms=np.stack((t_alm,t_alm))
@@ -400,20 +391,47 @@ def qe_shear(px,mlmax,Talm=None,fTalm=None):
     realsm2=prodmap[1] #spin -2 real space real space field
     realsp2 = enmap.samewcs(realsp2,omap)
     realsm2=enmap.samewcs(realsm2,omap)
-
-
     #convert the above spin2 fields to spin pm 2 alms
     res1 = px.map2alm_spin(realsp2,mlmax,2,2) #will return pm2 
     res2= px.map2alm_spin(realsm2,mlmax,-2,2) #will return pm2
-
     #spin 2 ylm 
     ttalmsp2=rot2dalm(res1,2)[0] #pick up the spin 2 alm of the first one
     ttalmsm2=rot2dalm(res1,2)[1] #pick up the spin -2 alm of the second one
     shear_alm=ttalmsp2+ttalmsm2
-
-    
-    
     return shear_alm
+
+def qe_m4(px,mlmax,Talm=None,fTalm=None):
+    """
+    px is a pixelization object, initialized like this:
+    px = pixelization(shape=shape,wcs=wcs) # for CAR
+    px = pixelization(nside=nside) # for healpix
+    output: curved sky multipole=4 estimator
+    """
+    import math
+    ells = np.arange(mlmax)
+    omap = enmap.zeros((2,)+px.shape,px.wcs) #load empty map with SO map wcs and shape
+    #prepare temperature map
+    rmapT=px.alm2map(np.stack((Talm,Talm)),spin=0,ncomp=1,mlmax=mlmax)[0]
+    #find tbarf
+    t_alm=hp.almxfl(fTalm,np.sqrt((ells-3.)*(ells-2.)*(ells-1.)*ells*(ells+1.)*(ells+2.)*(ells+3.)*(ells+4.)))
+
+    alms=np.stack((t_alm,t_alm))
+    rmap=px.alm2map_spin(alms,0,4,ncomp=2,mlmax=mlmax)
+
+    #multiply the two fields together
+    rmap=np.nan_to_num(rmap)
+    prodmap=rmap*rmapT
+    prodmap=np.nan_to_num(prodmap)
+    prodmap=enmap.samewcs(prodmap,omap)
+    realsp2=prodmap[0] #spin +4 real space real space field
+    realsp2 = enmap.samewcs(realsp2,omap)
+    #convert the above spin4 fields to spin pm 4 alms
+    res1 = px.map2alm_spin(realsp2,mlmax,4,4) #will return pm4
+    #spin 4 ylm 
+    ttalmsp2=rot2dalm(res1,4)[0] #pick up the spin 4 alm of the first one
+    ttalmsm2=rot2dalm(res1,4)[1] #pick up the spin -4 alm of the second one
+    m4_alm=ttalmsp2+ttalmsm2
+    return m4_alm
 
 def qe_pointsources(px,theory_func,theory_crossfunc,mlmax,fTalm=None,fEalm=None,fBalm=None,estimators=['TT','TE','EE','EB','TB','mv','mvpol'],xfTalm=None,xfEalm=None,xfBalm=None):
     """
@@ -421,7 +439,7 @@ def qe_pointsources(px,theory_func,theory_crossfunc,mlmax,fTalm=None,fEalm=None,
     px is a pixelization object, initialized like this:
     px = pixelization(shape=shape,wcs=wcs) # for CAR
     px = pixelization(nside=nside) # for healpix
-    output: Point source estimator
+    output: Point source estimator alms
     """
     ests = estimators
     ells = np.arange(mlmax)
