@@ -340,7 +340,6 @@ def qe_mask(px,response_cls_dict,mlmax,fTalm,xfTalm=None):
     px = pixelization(nside=nside) # for healpix
     output: Mask estimator alms
     """
-    omap = enmap.zeros((2,)+px.shape,px.wcs)
     if xfTalm is None:
         xfTalm = fTalm.copy()
     tw = filter_alms(fTalm,response_cls_dict['TT'])
@@ -348,7 +347,7 @@ def qe_mask(px,response_cls_dict,mlmax,fTalm,xfTalm=None):
     rmap=px.alm2map_spin(np.stack((fTalm,fTalm)),0,0,ncomp=2,mlmax=mlmax)
     #multiply the two fields together
     prodmap=rmap*rmapT
-    prodmap=enmap.samewcs(prodmap,omap)
+    if not(px.hpix): prodmap=enmap.enmap(prodmap,px.wcs)
     realsp=prodmap[0] #spin +0 real space  field
     res=px.map2alm(realsp,mlmax)
     return res
@@ -361,7 +360,6 @@ def qe_shear(px,mlmax,Talm=None,fTalm=None):
     output: curved sky shear estimator
     """
     ells = np.arange(mlmax)
-    omap = enmap.zeros((2,)+px.shape,px.wcs)
     #prepare temperature map
     rmapT=px.alm2map(np.stack((Talm,Talm)),spin=0,ncomp=1,mlmax=mlmax)[0]
     #find tbarf
@@ -370,11 +368,12 @@ def qe_shear(px,mlmax,Talm=None,fTalm=None):
     rmap=px.alm2map_spin(alms,0,2,ncomp=2,mlmax=mlmax)   #same as 2 2
     #multiply the two fields together
     prodmap=rmap*rmapT
-    prodmap=enmap.samewcs(prodmap,omap)
+    if not(px.hpix): prodmap=enmap.enmap(prodmap,px.wcs)
     realsp2=prodmap[0] #spin +2 real space real space field
     realsm2=prodmap[1] #spin -2 real space real space field
-    realsp2 = enmap.samewcs(realsp2,omap)
-    realsm2=enmap.samewcs(realsm2,omap)
+    if not(px.hpix): 
+        realsp2 = enmap.enmap(realsp2,px.wcs)
+        realsm2=enmap.enmap(realsm2,px.wcs)
     #convert the above spin2 fields to spin pm 2 alms
     res1 = px.map2alm_spin(realsp2,mlmax,2,2) #will return pm2 
     res2= px.map2alm_spin(realsm2,mlmax,-2,2) #will return pm2
@@ -391,9 +390,7 @@ def qe_m4(px,mlmax,Talm=None,fTalm=None):
     px = pixelization(nside=nside) # for healpix
     output: curved sky multipole=4 estimator
     """
-    import math
     ells = np.arange(mlmax)
-    omap = enmap.zeros((2,)+px.shape,px.wcs) #load empty map with SO map wcs and shape
     #prepare temperature map
     rmapT=px.alm2map(np.stack((Talm,Talm)),spin=0,ncomp=1,mlmax=mlmax)[0]
     #find tbarf
@@ -406,9 +403,9 @@ def qe_m4(px,mlmax,Talm=None,fTalm=None):
     rmap=np.nan_to_num(rmap)
     prodmap=rmap*rmapT
     prodmap=np.nan_to_num(prodmap)
-    prodmap=enmap.samewcs(prodmap,omap)
+    if not(px.hpix): prodmap=enmap.enmap(prodmap,px.wcs)
     realsp2=prodmap[0] #spin +4 real space real space field
-    realsp2 = enmap.samewcs(realsp2,omap)
+    if not(px.hpix): realsp2 = enmap.enmap(realsp2,px.wcs)
     #convert the above spin4 fields to spin pm 4 alms
     res1 = px.map2alm_spin(realsp2,mlmax,4,4) #will return pm4
     #spin 4 ylm 
@@ -431,95 +428,8 @@ def qe_pointsources(px,mlmax,fTalm,xfTalm=None):
     rmap2 = px.alm2map(xfTalm,spin=0,ncomp=1,mlmax=mlmax)[0]
     #multiply the two fields together
     prodmap=rmap1*rmap2
-    prodmap=enmap.enmap(prodmap,px.wcs) #spin +0 real space  field
+    if not(px.hpix): prodmap=enmap.enmap(prodmap,px.wcs) #spin +0 real space  field
     res=px.map2alm_spin(prodmap,mlmax,0,0)
     #spin 0 salm 
     salm=0.5*res[0] 
     return salm
-
-def symlens_norm(uctt,tctt,ucee,tcee,ucte,tcte,ucbb,tcbb,lmin=100,lmax=2000,plot=True,estimator="hu_ok"):
-    import symlens
-    from orphics import maps,stats,io
-    shape,wcs = maps.rect_geometry(width_deg=80.,px_res_arcmin=2.0*3000./lmax)
-    emin = maps.minimum_ell(shape,wcs)
-    modlmap = enmap.modlmap(shape,wcs)
-    tctt = maps.interp(range(len(tctt)),tctt)(modlmap)
-    ells=np.arange(len(uctt))
-    ductt=np.gradient(np.log(uctt),np.log(ells))
-    uctt = maps.interp(range(len(uctt)),uctt)(modlmap)
-    ductt=maps.interp(range(len(ductt)),ductt)(modlmap)
-    tcee = maps.interp(range(len(tcee)),tcee)(modlmap)
-    ucee = maps.interp(range(len(ucee)),ucee)(modlmap)
-    tcbb = maps.interp(range(len(tcbb)),tcbb)(modlmap)
-    ucbb = maps.interp(range(len(ucbb)),ucbb)(modlmap)
-    ucte = maps.interp(range(len(ucte)),ucte)(modlmap)
-    tcte = maps.interp(range(len(tcte)),tcte)(modlmap)
-    
-    tmask = maps.mask_kspace(shape,wcs,lmin=lmin,lmax=lmax)
-    feed_dict = {
-        'uC_T_T':uctt,
-        'tC_T_T':tctt,
-        'uC_E_E':ucee,
-        'tC_E_E':tcee,
-        'uC_T_E':ucte,
-        'tC_T_E':tcte,
-        'tC_B_B':tcbb,
-        'uC_B_B':ucbb,
-    }
-    polcombs = ['TT','TE','EE','TB','EB']
-    Als = {}
-    Al1ds = {}
-    bin_edges = np.arange(3*emin,lmax,2*emin)
-    binner = stats.bin2D(modlmap,bin_edges)
-    alinv_mv = 0.
-    alinv_mv_pol = 0.
-    for pol in polcombs:
-        if estimator=="hu_ok" or estimator=="hdv":
-            Al = symlens.A_l(shape, wcs, feed_dict=feed_dict, estimator=estimator, XY=pol, xmask=tmask, ymask=tmask)
-        elif estimator=="shear":
-            print("calculating shear norm and noise")
-            ells=np.arange(len(uctt))
-            feed_dict['duC_T_T'] =ductt
-            Al = symlens.A_l(shape, wcs, feed_dict=feed_dict, estimator=estimator, XY="TT", xmask=tmask, ymask=tmask)
-            Noise=symlens.qe.N_l(shape, wcs, feed_dict=feed_dict, estimator=estimator, XY="TT", xmask=tmask, ymask=tmask,Al=Al,field_names=None, kmask=None)
-            cents,Ns1d = binner.bin(Noise)
-            ls = np.arange(0,cents.max(),1)
-            Ns=np.interp(ls,cents,Ns1d*cents**2.)/ls**2.
-            Ns[ls<1] = 0
-  
-            cents,Al1d = binner.bin(Al)
-            Als= np.interp(ls,cents,Al1d*cents**2.)/ls**2.
-            Als[ls<1] = 0
-
-            return ls,Als,Ns
-            
-        cents,Al1d = binner.bin(Al)
-        ls = np.arange(0,cents.max(),1)
-        Als[pol] = np.interp(ls,cents,Al1d*cents**2.)/ls**2.
-        Als[pol][ls<1] = 0
-        Al1ds[pol] = Al1d.copy()
-        alinv_mv += (1./Als[pol])
-        if pol=='EE' or pol=='EB': alinv_mv_pol += (1./Als[pol])
-    al_mv = (1./alinv_mv)
-    al_mv[ls<1] = 0
-    al_mv_pol = (1./alinv_mv_pol)
-    al_mv_pol[ls<1] = 0
-    if plot:
-        pl = io.Plotter(xyscale='loglog',xlabel='',ylabel='')
-        pl.add(ells,clkk,color='k',lw=3)
-        pl.add(ls,al_mv*ls**2.,ls="-",color="red",label='mv',lw=2)
-        pl.add(ls,al_mv_pol*ls**2.,ls="-",color="green",label='mv_pol',lw=2)
-        for i,pol in enumerate(polcombs):
-            pl.add(cents,Al1ds[pol]*cents**2.,color="C%d" % i,label=pol)
-            pl.add(ls,Als[pol]*ls**2.,ls="--",color="C%d" % i)
-        pl.done()
-
-
-    Al1 = symlens.A_l(shape, wcs, feed_dict=feed_dict, estimator="hdv", XY="TE", xmask=tmask, ymask=tmask)
-    Al2 = symlens.A_l(shape, wcs, feed_dict=feed_dict, estimator="hdv", XY="ET", xmask=tmask, ymask=tmask)
-    Al_te_hdv = 1./((1./Al1)+(1./Al2))
-    cents,Al1d = binner.bin(Al_te_hdv)
-    Al_te_hdv = np.interp(ls,cents,Al1d*cents**2.)/ls**2.
-    Al_te_hdv[ls<1] = 0
-    
-    return ls,Als,al_mv_pol,al_mv,Al_te_hdv
