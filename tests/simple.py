@@ -1,107 +1,95 @@
 from __future__ import print_function
 from orphics import maps,io,cosmology,stats
-from pixell import enmap,curvedsky as cs,lensing
+from pixell import enmap,lensing as plensing,curvedsky, utils, enplot
 from enlib import bench
 import numpy as np
 import os,sys
 import healpy as hp
-from falafel import qe
+from falafel import qe,utils
+import pytempura
 
-"""
-build d(T)
-build d(E,B)
-build d(E=0,B)
-build d(E,B=0)
+# The estimators to test lensing for
+ests = ['TT','mv','mvpol','EE','TE','EB','TB']
+#ests = ['mv']
+#ests = ['TT']
 
-TT = G(d(T))
-EE = G(d(E,B=0))
-EB = G(d(E,B)) - EE
-TB = G(d(T) + d(E=0,B)) - TT
-TE = G(d(T) + d(E,B=0)) - EE - TT 
-MV = G(d(T) + d(E,B))
-MV_pol = G(d(E,B))
-
-TT
-EE
-EE + EB
-TT + EE + TE + EB + TB
-"""
-
-
-est = "temp"
-#est = "pol"
-#est = "mv"
-
-thloc = "/home/msyriac/data/act/theory/cosmo2017_10K_acc3"
-theory = cosmology.loadTheorySpectraFromCAMB(thloc,get_dimensionless=False)
-
+# Decide on a geometry for the intermediate operations
 res = 2.0 # resolution in arcminutes
 shape,wcs = enmap.fullsky_geometry(res=np.deg2rad(res/60.),proj="car")
-#shape,wcs = enmap.band_geometry((np.deg2rad(-60.),np.deg2rad(30.)),res=np.deg2rad(res/60.), proj="car")
-sim_location = "/home/msyriac/data/sims/alex/v0.4/"
-sindex = str(1).zfill(5)
-mlmax = 4000
-
-alm = maps.change_alm_lmax(
-    hp.read_alm("/home/msyriac/data/sims/alex/v0.4/fullskyLensedUnabberatedCMB_alm_set00_%s.fits"
-                % sindex,hdu=(1,2,3))
-    ,mlmax)
-
-lmax = 3000
-lmin = 100
-
-talm = alm[0]
-ealm = alm[1]
-balm = alm[2]
-
-
-falm = qe.filter_alms(talm,lambda x: 1./theory.lCl('TT',x),lmin,lmax)
-xalm = qe.filter_alms(talm,lambda x: 1,lmin,lmax)
-X_Ealm = qe.filter_alms(ealm,lambda x: 1,lmin,lmax)
-X_Balm = qe.filter_alms(balm,lambda x: 1,lmin,lmax)
-Y_Ealm = qe.filter_alms(ealm,lambda x: 1./theory.lCl('EE',x),lmin,lmax)
-Y_Balm = qe.filter_alms(balm,lambda x: 1./theory.lCl('BB',x),lmin,lmax)
-
 px = qe.pixelization(shape,wcs)
 
-if est=="temp":
-    with bench.show("recon tt"): recon = qe.qe_temperature_only(px,xalm,falm,mlmax)[0]
-elif est=="pol":
-    with bench.show("recon pol"): recon = qe.qe_pol_only(px,X_Ealm,X_Balm,Y_Ealm,Y_Balm,mlmax)[0]
-    with bench.show("recon pol"): recon_ee = qe.qe_pol_only(px,X_Ealm,X_Balm*0,Y_Ealm,Y_Balm*0,mlmax)[0]
-elif est=="mv":
-    with bench.show("recon mv"): recon = qe.qe_mv(px,xalm,X_Ealm,X_Balm,falm,Y_Ealm,Y_Balm,mlmax)[0]
+# Choose sim index
+sindex = 1
 
-palm = maps.change_alm_lmax(hp.read_alm(sim_location+"fullskyPhi_alm_%s.fits" % (sindex)),mlmax)
-ikalm = lensing.phi_to_kappa(palm)
+# Maximum multipole for alms
+mlmax = 4000
 
-ls,Als,Als_ee,Als_eb,Als_te,Als_tb,al_mv_pol,al_mv,Al_te_hdv = np.loadtxt("norm.txt",unpack=True)
-if est=="pol":
-    Als = al_mv_pol # !!
-    kalms_eb = hp.almxfl(recon-recon_ee,Als_eb)
-elif est=="mv":
-    Als = al_mv
-# Als = Als_ee # !!
-kalms = hp.almxfl(recon,Als)
+# Filtering configuration
+lmax = 3000
+lmin = 100
+beam_fwhm = 0.
+noise_t = 0.
 
-cls = hp.alm2cl(kalms,ikalm)
-icls = hp.alm2cl(ikalm,ikalm)
-acls = hp.alm2cl(kalms,kalms)
-if est=='pol':
-    cls_eb = hp.alm2cl(kalms_eb,ikalm)
-    acls_eb = hp.alm2cl(kalms_eb,kalms_eb)
+# Get CMB alms
+alm = utils.get_cmb_alm(sindex,0)
+
+# Get theory spectra
+ucls,tcls = utils.get_theory_dicts_white_noise(beam_fwhm,noise_t)
+
+
+# Get normalizations
+Als = pytempura.get_norms(ests,ucls,tcls,lmin,lmax,k_ellmax=mlmax)
+
+# Filter isotropically
+tcltt = tcls['TT']
+tclee = tcls['EE']
+tclbb = tcls['BB']
+
+filt_T = tcltt*0
+filt_E = tclee*0
+filt_B = tclbb*0
+
+filt_T[2:] = 1./tcltt[2:]
+filt_E[2:] = 1./tclee[2:]
+filt_B[2:] = 1./tclbb[2:]
+
+talm = qe.filter_alms(alm[0],filt_T,lmin=lmin,lmax=lmax)
+ealm = qe.filter_alms(alm[1],filt_E,lmin=lmin,lmax=lmax)
+balm = qe.filter_alms(alm[2],filt_B,lmin=lmin,lmax=lmax)
+
+
+# Reconstruct
+recon = qe.qe_all(px,ucls,mlmax,
+                  fTalm=talm,fEalm=ealm,fBalm=balm,
+                  estimators=ests,
+                  xfTalm=talm,xfEalm=ealm,xfBalm=balm)
     
+# Get input kappa alms
+ikalm = utils.change_alm_lmax(utils.get_kappa_alm(sindex).astype(np.complex128),mlmax)
 
-pl = io.Plotter(xyscale='loglog')#lin',scalefn=lambda x: x)
+
+# Cross-correlate and plot
+kalms = {}
+icls = hp.alm2cl(ikalm,ikalm)
 ells = np.arange(len(icls))
-if est=='pol':
-    pl.add(ells,acls_eb,label='EB')
-    pl.add(ells,cls_eb,label='EB',marker='o')
-pl.add(ells,acls)
-pl.add(ls,maps.interp(ells,icls)(ls) + (Als*ls*(ls+1)/4.))
-pl.add(ells,cls)
-pl.add(ells,icls)
-pl.add(ells,theory.gCl('kk',ells))
-pl.hline(y=0)
-pl._ax.set_ylim(1e-9,1e-5)
-pl.done()
+bin_edges = np.geomspace(2,mlmax,15)
+print(bin_edges)
+binner = stats.bin1D(bin_edges)
+bin = lambda x: binner.bin(ells,x)
+print(ells.shape)
+for est in ests:
+    pl = io.Plotter('CL')
+    pl2 = io.Plotter('rCL',xyscale='loglin')
+    kalms[est] = plensing.phi_to_kappa(hp.almxfl(recon[est][0].astype(np.complex128),Als[est][0] )) # ignore curl
+    pl.add(ells,(ells*(ells+1.)/2.)**2. * Als[est][0],ls='--')
+    cls = hp.alm2cl(kalms[est],ikalm)
+    acls = hp.alm2cl(kalms[est],kalms[est])
+    pl.add(ells,acls,label='r x r')
+    pl.add(ells,cls,label = 'r x i')
+    pl.add(ells,icls, label = 'i x i')
+    pl2.add(*bin((cls-icls)/icls),marker='o')
+    pl2.hline(y=0)
+    pl2._ax.set_ylim(-0.1,0.1)
+    pl2.done(f'simple_recon_diff_{est}.png')
+    pl._ax.set_ylim(1e-9,1e-5)
+    pl.done(f'simple_recon_{est}.png')

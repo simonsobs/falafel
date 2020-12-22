@@ -79,12 +79,18 @@ class pixelization(object):
             return cs.map2alm(enmap.enmap(dmap,imap.wcs),spin=spin_transform,lmax=lmax)
 
 
-def filter_alms(alms,ffunc,lmin=None,lmax=None):
+def filter_alms(alms,filt,lmin=None,lmax=None):
+    """
+    Filter the alms with transfer function specified
+    by filt (indexed starting at ell=0).
+    """
     mlmax = hp.Alm.getlmax(alms.size)
-    ells = np.arange(0,mlmax)
-    filt = np.nan_to_num(ffunc(ells))+ells*0
-    if lmin is not None: filt[ells<lmin] = 0
-    if lmax is not None: filt[ells>lmax] = 0
+    ls = np.arange(filt.size)
+    if lmax is not None:
+        assert lmax<=ls.max()
+        assert lmax<=mlmax
+    if lmin is not None: filt[ls<lmin] = 0
+    if lmax is not None: filt[ls>lmax] = 0
     return hp.almxfl(alms.copy(),filt)
 
 def rot2d(fmap):
@@ -152,7 +158,7 @@ def gradient_spin(px,alm,mlmax,spin):
     salms = almxfl(alm,fl)
     return sign*px.alm2map_spin(salms,spin,spin_out,ncomp=2,mlmax=mlmax)[comp]
 
-def deflection_map_to_kappa_curl_alms(px,dmap,mlmax):
+def deflection_map_to_phi_curl_alms(px,dmap,mlmax):
     """
     px is a pixelization object, initialized like this:
     px = pixelization(shape=shape,wcs=wcs) # for CAR
@@ -161,7 +167,7 @@ def deflection_map_to_kappa_curl_alms(px,dmap,mlmax):
 
     res = px.map2alm_spin(dmap,lmax=mlmax,spin_alm=0,spin_transform=1)
     ells = np.arange(0,mlmax)
-    fl = np.sqrt(ells*(ells+1.))/2
+    fl = np.sqrt(ells*(ells+1.))
     res = almxfl(res,fl)
     return res
 
@@ -207,7 +213,7 @@ def qe_temperature_only(px,Xalm,Yalm,mlmax):
     """
 
     dmap = qe_spin_temperature_deflection(px,Xalm,Yalm,mlmax)
-    return deflection_map_to_kappa_curl_alms(px,dmap,mlmax)
+    return deflection_map_to_phi_curl_alms(px,dmap,mlmax)
 
 def qe_pol_only(px,X_Ealm,X_Balm,Y_Ealm,Y_Balm,mlmax):
     """
@@ -216,7 +222,7 @@ def qe_pol_only(px,X_Ealm,X_Balm,Y_Ealm,Y_Balm,mlmax):
     px = pixelization(nside=nside) # for healpix
     """
     dmap = qe_spin_pol_deflection(px,X_Ealm,X_Balm,Y_Ealm,Y_Balm,mlmax)
-    return deflection_map_to_kappa_curl_alms(px,dmap,mlmax)
+    return deflection_map_to_phi_curl_alms(px,dmap,mlmax)
 
 def qe_mv(px,X_Talm,X_Ealm,X_Balm,Y_Talm,Y_Ealm,Y_Balm,mlmax):
     """
@@ -226,10 +232,13 @@ def qe_mv(px,X_Talm,X_Ealm,X_Balm,Y_Talm,Y_Ealm,Y_Balm,mlmax):
     """
     dmap_t = qe_spin_temperature_deflection(px,X_Talm,Y_Talm,mlmax)
     dmap_p = qe_spin_pol_deflection(px,X_Ealm,X_Balm,Y_Ealm,Y_Balm,mlmax)
-    return deflection_map_to_kappa_curl_alms(px,dmap_t+dmap_p,mlmax),dmap_t,dmap_p
+    return deflection_map_to_phi_curl_alms(px,dmap_t+dmap_p,mlmax),dmap_t,dmap_p
 
 
-def qe_all(px,theory_func,theory_crossfunc,mlmax,fTalm=None,fEalm=None,fBalm=None,estimators=['TT','TE','EE','EB','TB','mv','mvpol'],xfTalm=None,xfEalm=None,xfBalm=None):
+def qe_all(px,response_cls_dict,mlmax,
+           fTalm=None,fEalm=None,fBalm=None,
+           estimators=['TT','TE','EE','EB','TB','mv','mvpol'],
+           xfTalm=None,xfEalm=None,xfBalm=None):
     """
     Inputs are Cinv filtered alms.
     px is a pixelization object, initialized like this:
@@ -237,10 +246,7 @@ def qe_all(px,theory_func,theory_crossfunc,mlmax,fTalm=None,fEalm=None,fBalm=Non
     px = pixelization(nside=nside) # for healpix
     """
     ests = estimators
-    ells = np.arange(mlmax)
-    th = lambda x,y: theory_func(x,y)
-    th_cross=lambda x,y: theory_crossfunc(x,y)
-    kfunc = lambda x: deflection_map_to_kappa_curl_alms(px,x,mlmax)
+    kfunc = lambda x: deflection_map_to_phi_curl_alms(px,x,mlmax)
 
     if xfTalm is None:
         if fTalm is not None: xfTalm = fTalm.copy()
@@ -256,10 +262,7 @@ def qe_all(px,theory_func,theory_crossfunc,mlmax,fTalm=None,fEalm=None,fBalm=Non
     def mixing(list_spec,list_alms):
         res = 0
         for spec,alm in zip(list_spec,list_alms):
-            if spec=='TT':
-                res = res + filter_alms(alm,lambda x: th_cross(spec,x))
-            else:
-                res = res + filter_alms(alm,lambda x: th(spec,x))
+            res = res + filter_alms(alm,response_cls_dict[spec])
         return res
 
     def xalm(name):
@@ -328,7 +331,7 @@ def qe_all(px,theory_func,theory_crossfunc,mlmax,fTalm=None,fEalm=None,fBalm=Non
 
     return results
 
-def qe_mask(px,theory_func,theory_crossfunc,mlmax,fTalm=None,fEalm=None,fBalm=None,estimators=['TT','TE','EE','EB','TB','mv','mvpol'],xfTalm=None,xfEalm=None,xfBalm=None):
+def qe_mask(px,response_cls_dict,mlmax,fTalm,xfTalm=None):
     """
     Inputs are Cinv filtered alms.
     px is a pixelization object, initialized like this:
@@ -336,33 +339,19 @@ def qe_mask(px,theory_func,theory_crossfunc,mlmax,fTalm=None,fEalm=None,fBalm=No
     px = pixelization(nside=nside) # for healpix
     output: Mask estimator alms
     """
-    ests = estimators
-    ells = np.arange(mlmax)
-    th = lambda x,y: theory_func(x,y)
-    th_cross=lambda x,y: theory_crossfunc(x,y)
-    kfunc = lambda x: deflection_map_to_kappa_curl_alms(px,x,mlmax)
     omap = enmap.zeros((2,)+px.shape,px.wcs)
-
     if xfTalm is None:
-        if fTalm is not None: xfTalm = fTalm.copy()
-    if xfEalm is None:
-        if fEalm is not None: xfEalm = fEalm.copy()
-    if xfBalm is None:
-        if fBalm is not None: xfBalm = fBalm.copy()
-    filt = np.nan_to_num(th_cross('TT',ells))+ells*0
-    tw=hp.almxfl(fTalm.copy(),filt)
+        xfTalm = fTalm.copy()
+    tw = filter_alms(fTalm,response_cls_dict['TT'])
     rmapT=px.alm2map_spin(np.stack((tw,tw)),0,0,ncomp=2,mlmax=mlmax)
     rmap=px.alm2map_spin(np.stack((fTalm,fTalm)),0,0,ncomp=2,mlmax=mlmax)
     #multiply the two fields together
     prodmap=rmap*rmapT
     prodmap=enmap.samewcs(prodmap,omap)
     realsp=prodmap[0] #spin +0 real space  field
-
     res=px.map2alm_spin(realsp,mlmax,0,0)
-
     #spin 0 alm 
     ttalmsp2=res[0] 
-    
     return ttalmsp2
 
 def qe_shear(px,mlmax,Talm=None,fTalm=None):
@@ -399,7 +388,7 @@ def qe_shear(px,mlmax,Talm=None,fTalm=None):
     shear_alm=ttalmsp2+ttalmsm2
     return shear_alm
 
-def qe_pointsources(px,theory_func,theory_crossfunc,mlmax,fTalm=None,fEalm=None,fBalm=None,estimators=['TT','TE','EE','EB','TB','mv','mvpol'],xfTalm=None,xfEalm=None,xfBalm=None):
+def qe_pointsources(px,mlmax,fTalm):
     """
     Inputs are Cinv filtered alms.
     px is a pixelization object, initialized like this:
@@ -407,30 +396,14 @@ def qe_pointsources(px,theory_func,theory_crossfunc,mlmax,fTalm=None,fEalm=None,
     px = pixelization(nside=nside) # for healpix
     output: Point source estimator alms
     """
-    ests = estimators
-    ells = np.arange(mlmax)
-    th = lambda x,y: theory_func(x,y)
-    th_cross=lambda x,y: theory_crossfunc(x,y)
-    kfunc = lambda x: deflection_map_to_kappa_curl_alms(px,x,mlmax)
     omap = enmap.zeros((2,)+px.shape,px.wcs) #load empty map with SO map wcs and shape
-
-    if xfTalm is None:
-        if fTalm is not None: xfTalm = fTalm.copy()
-    if xfEalm is None:
-        if fEalm is not None: xfEalm = fEalm.copy()
-    if xfBalm is None:
-        if fBalm is not None: xfBalm = fBalm.copy()
     rmap=px.alm2map_spin(np.stack((fTalm,fTalm)),0,0,ncomp=2,mlmax=mlmax)
-    #multiply the two fields together
     prodmap=rmap**2
     prodmap=enmap.samewcs(prodmap,omap)
     realsp=prodmap[0] #spin +0 real space  field
-
     res=px.map2alm_spin(realsp,mlmax,0,0)
-
     #spin 0 salm 
     salm=0.5*res[0] 
-    
     return salm
 
 def symlens_norm(uctt,tctt,ucee,tcee,ucte,tcte,ucbb,tcbb,lmin=100,lmax=2000,plot=True,estimator="hu_ok"):
@@ -517,8 +490,5 @@ def symlens_norm(uctt,tctt,ucee,tcee,ucte,tcte,ucbb,tcbb,lmin=100,lmax=2000,plot
     cents,Al1d = binner.bin(Al_te_hdv)
     Al_te_hdv = np.interp(ls,cents,Al1d*cents**2.)/ls**2.
     Al_te_hdv[ls<1] = 0
-    
-    
-
     
     return ls,Als,al_mv_pol,al_mv,Al_te_hdv
