@@ -9,9 +9,9 @@ from falafel import qe,utils
 import pytempura
 
 # The estimators to test lensing for
-ests = ['TT','mv','mvpol','EE','TE','EB','TB']
-#ests = ['mv']
-#ests = ['TT']
+# ests = ['TT','mv','mvpol','EE','TE','EB','TB']
+ests = ['mv']
+# ests = ['TT']
 
 # Decide on a geometry for the intermediate operations
 res = 2.0 # resolution in arcminutes
@@ -34,35 +34,20 @@ noise_t = 0.
 alm = utils.get_cmb_alm(sindex,0)
 
 # Get theory spectra
-xucls,tcls = utils.get_theory_dicts_white_noise(beam_fwhm,noise_t)
+ucls,tcls = utils.get_theory_dicts_white_noise(beam_fwhm,noise_t)
 
 
 # Get normalizations
-Als = pytempura.get_norms(ests,ucls,tcls,lmin,lmax,k_ellmax=mlmax)
+Als = pytempura.get_norms(ests,ucls,tcls,lmin,lmax,k_ellmax=mlmax,no_corr=False)
 
-# Filter isotropically
-tcltt = tcls['TT']
-tclee = tcls['EE']
-tclbb = tcls['BB']
-
-filt_T = tcltt*0
-filt_E = tclee*0
-filt_B = tclbb*0
-
-filt_T[2:] = 1./tcltt[2:]
-filt_E[2:] = 1./tclee[2:]
-filt_B[2:] = 1./tclbb[2:]
-
-talm = qe.filter_alms(alm[0],filt_T,lmin=lmin,lmax=lmax)
-ealm = qe.filter_alms(alm[1],filt_E,lmin=lmin,lmax=lmax)
-balm = qe.filter_alms(alm[2],filt_B,lmin=lmin,lmax=lmax)
-
+# Filter
+Xdat = utils.isotropic_filter(alm,tcls)
 
 # Reconstruct
 recon = qe.qe_all(px,ucls,mlmax,
-                  fTalm=talm,fEalm=ealm,fBalm=balm,
+                  fTalm=Xdat[0],fEalm=Xdat[1],fBalm=Xdat[2],
                   estimators=ests,
-                  xfTalm=talm,xfEalm=ealm,xfBalm=balm)
+                  xfTalm=Xdat[0],xfEalm=Xdat[1],xfBalm=Xdat[2])
     
 # Get input kappa alms
 ikalm = utils.change_alm_lmax(utils.get_kappa_alm(sindex).astype(np.complex128),mlmax)
