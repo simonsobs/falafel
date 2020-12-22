@@ -388,7 +388,7 @@ def qe_shear(px,mlmax,Talm=None,fTalm=None):
     shear_alm=ttalmsp2+ttalmsm2
     return shear_alm
 
-def qe_pointsources(px,mlmax,fTalm):
+def qe_pointsources(px,mlmax,fTalm,xfTalm=None,):
     """
     Inputs are Cinv filtered alms.
     px is a pixelization object, initialized like this:
@@ -396,9 +396,12 @@ def qe_pointsources(px,mlmax,fTalm):
     px = pixelization(nside=nside) # for healpix
     output: Point source estimator alms
     """
+    if xfTalm is None:
+        xfTalm = fTalm.copy()
     omap = enmap.zeros((2,)+px.shape,px.wcs) #load empty map with SO map wcs and shape
     rmap=px.alm2map_spin(np.stack((fTalm,fTalm)),0,0,ncomp=2,mlmax=mlmax)
-    prodmap=rmap**2
+    xrmap=px.alm2map_spin(np.stack((xfTalm,xfTalm)),0,0,ncomp=2,mlmax=mlmax)
+    prodmap=rmap*xrmap
     prodmap=enmap.samewcs(prodmap,omap)
     realsp=prodmap[0] #spin +0 real space  field
     res=px.map2alm_spin(realsp,mlmax,0,0)
