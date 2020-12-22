@@ -34,7 +34,7 @@ noise_t = 0.
 alm = utils.get_cmb_alm(sindex,0)
 
 # Get theory spectra
-ucls,tcls = utils.get_theory_dicts_white_noise(beam_fwhm,noise_t)
+xucls,tcls = utils.get_theory_dicts_white_noise(beam_fwhm,noise_t)
 
 
 # Get normalizations

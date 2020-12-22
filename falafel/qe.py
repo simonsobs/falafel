@@ -388,7 +388,7 @@ def qe_shear(px,mlmax,Talm=None,fTalm=None):
     shear_alm=ttalmsp2+ttalmsm2
     return shear_alm
 
-def qe_pointsources(px,mlmax,fTalm,xfTalm=None,):
+def qe_pointsources(px,mlmax,fTalm,xfTalm=None):
     """
     Inputs are Cinv filtered alms.
     px is a pixelization object, initialized like this:
