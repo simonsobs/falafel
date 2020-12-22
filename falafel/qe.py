@@ -260,6 +260,7 @@ def qe_all(px,response_cls_dict,mlmax,
     acache = {}
 
     def mixing(list_spec,list_alms):
+        """wiener filter and combine together the alms in list_spec"""
         res = 0
         for spec,alm in zip(list_spec,list_alms):
             res = res + filter_alms(alm,response_cls_dict[spec])
@@ -349,10 +350,8 @@ def qe_mask(px,response_cls_dict,mlmax,fTalm,xfTalm=None):
     prodmap=rmap*rmapT
     prodmap=enmap.samewcs(prodmap,omap)
     realsp=prodmap[0] #spin +0 real space  field
-    res=px.map2alm_spin(realsp,mlmax,0,0)
-    #spin 0 alm 
-    ttalmsp2=res[0] 
-    return ttalmsp2
+    res=px.map2alm(realsp,mlmax)
+    return res
 
 def qe_shear(px,mlmax,Talm=None,fTalm=None):
     """
@@ -365,7 +364,6 @@ def qe_shear(px,mlmax,Talm=None,fTalm=None):
     omap = enmap.zeros((2,)+px.shape,px.wcs)
     #prepare temperature map
     rmapT=px.alm2map(np.stack((Talm,Talm)),spin=0,ncomp=1,mlmax=mlmax)[0]
-
     #find tbarf
     t_alm=hp.almxfl(fTalm,np.sqrt((ells-1.)*ells*(ells+1.)*(ells+2.)))
     alms=np.stack((t_alm,t_alm))
@@ -377,16 +375,47 @@ def qe_shear(px,mlmax,Talm=None,fTalm=None):
     realsm2=prodmap[1] #spin -2 real space real space field
     realsp2 = enmap.samewcs(realsp2,omap)
     realsm2=enmap.samewcs(realsm2,omap)
-
     #convert the above spin2 fields to spin pm 2 alms
     res1 = px.map2alm_spin(realsp2,mlmax,2,2) #will return pm2 
     res2= px.map2alm_spin(realsm2,mlmax,-2,2) #will return pm2
-
     #spin 2 ylm 
     ttalmsp2=rot2dalm(res1,2)[0] #pick up the spin 2 alm of the first one
     ttalmsm2=rot2dalm(res1,2)[1] #pick up the spin -2 alm of the second one
     shear_alm=ttalmsp2+ttalmsm2
     return shear_alm
+
+def qe_m4(px,mlmax,Talm=None,fTalm=None):
+    """
+    px is a pixelization object, initialized like this:
+    px = pixelization(shape=shape,wcs=wcs) # for CAR
+    px = pixelization(nside=nside) # for healpix
+    output: curved sky multipole=4 estimator
+    """
+    import math
+    ells = np.arange(mlmax)
+    omap = enmap.zeros((2,)+px.shape,px.wcs) #load empty map with SO map wcs and shape
+    #prepare temperature map
+    rmapT=px.alm2map(np.stack((Talm,Talm)),spin=0,ncomp=1,mlmax=mlmax)[0]
+    #find tbarf
+    t_alm=hp.almxfl(fTalm,np.sqrt((ells-3.)*(ells-2.)*(ells-1.)*ells*(ells+1.)*(ells+2.)*(ells+3.)*(ells+4.)))
+
+    alms=np.stack((t_alm,t_alm))
+    rmap=px.alm2map_spin(alms,0,4,ncomp=2,mlmax=mlmax)
+
+    #multiply the two fields together
+    rmap=np.nan_to_num(rmap)
+    prodmap=rmap*rmapT
+    prodmap=np.nan_to_num(prodmap)
+    prodmap=enmap.samewcs(prodmap,omap)
+    realsp2=prodmap[0] #spin +4 real space real space field
+    realsp2 = enmap.samewcs(realsp2,omap)
+    #convert the above spin4 fields to spin pm 4 alms
+    res1 = px.map2alm_spin(realsp2,mlmax,4,4) #will return pm4
+    #spin 4 ylm 
+    ttalmsp2=rot2dalm(res1,4)[0] #pick up the spin 4 alm of the first one
+    ttalmsm2=rot2dalm(res1,4)[1] #pick up the spin -4 alm of the second one
+    m4_alm=ttalmsp2+ttalmsm2
+    return m4_alm
 
 def qe_pointsources(px,mlmax,fTalm,xfTalm=None):
     """
@@ -398,13 +427,12 @@ def qe_pointsources(px,mlmax,fTalm,xfTalm=None):
     """
     if xfTalm is None:
         xfTalm = fTalm.copy()
-    omap = enmap.zeros((2,)+px.shape,px.wcs) #load empty map with SO map wcs and shape
-    rmap=px.alm2map_spin(np.stack((fTalm,fTalm)),0,0,ncomp=2,mlmax=mlmax)
-    xrmap=px.alm2map_spin(np.stack((xfTalm,xfTalm)),0,0,ncomp=2,mlmax=mlmax)
-    prodmap=rmap*xrmap
-    prodmap=enmap.samewcs(prodmap,omap)
-    realsp=prodmap[0] #spin +0 real space  field
-    res=px.map2alm_spin(realsp,mlmax,0,0)
+    rmap1 = px.alm2map(fTalm,spin=0,ncomp=1,mlmax=mlmax)[0]
+    rmap2 = px.alm2map(xfTalm,spin=0,ncomp=1,mlmax=mlmax)[0]
+    #multiply the two fields together
+    prodmap=rmap1*rmap2
+    prodmap=enmap.enmap(prodmap,px.wcs) #spin +0 real space  field
+    res=px.map2alm_spin(prodmap,mlmax,0,0)
     #spin 0 salm 
     salm=0.5*res[0] 
     return salm
