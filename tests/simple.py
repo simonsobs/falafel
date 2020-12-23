@@ -41,7 +41,7 @@ ucls,tcls = utils.get_theory_dicts_white_noise(beam_fwhm,noise_t)
 Als = pytempura.get_norms(ests,ucls,tcls,lmin,lmax,k_ellmax=mlmax,no_corr=False)
 
 # Filter
-Xdat = utils.isotropic_filter(alm,tcls)
+Xdat = utils.isotropic_filter(alm,tcls,lmin,lmax)
 
 # Reconstruct
 recon = qe.qe_all(px,ucls,mlmax,

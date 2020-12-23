@@ -327,9 +327,14 @@ def qe_all(px,response_cls_dict,mlmax,
     if 'EE' in ests: results['EE'] = kfunc(dmap('Pe'))
     if 'TT' in ests: results['TT'] = kfunc(dmap('Tt'))
     if 'TB' in ests: results['TB'] = kfunc(dmap('Ptb'))
-    if 'mvpol' in ests: results['mvpol'] = kfunc(dmap('Peb'))
-    if 'mv' in ests: results['mv'] = kfunc(dmap('Pteb')+dmap('Tte'))
-
+    if ('mvpol' in ests) or ('MVPOL' in ests): 
+        r_mvpol = kfunc(dmap('Peb'))
+    if ('mvpol' in ests): results['mvpol'] = r_mvpol
+    if ('MVPOL' in ests): results['MVPOL'] = r_mvpol
+    if ('MV' in ests) or ('mv' in ests):
+        r_mv = kfunc(dmap('Pteb')+dmap('Tte'))
+    if 'mv' in ests: results['mv'] = r_mv
+    if 'MV' in ests: results['MV'] = r_mv
     return results
 
 def qe_mask(px,response_cls_dict,mlmax,fTalm,xfTalm=None):

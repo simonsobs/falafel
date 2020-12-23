@@ -77,8 +77,7 @@ def change_alm_lmax(alms, lmax, dtype=np.complex128):
     return alms_out
 
 
-def isotropic_filter(alm,tcls,ignore_te=True):
-    
+def isotropic_filter(alm,tcls,lmin,lmax,ignore_te=True):
     # Filter isotropically
     tcltt = tcls['TT']
     tclee = tcls['EE']
