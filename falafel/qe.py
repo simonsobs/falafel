@@ -144,14 +144,16 @@ def gradient_spin(px,alm,mlmax,spin):
         spin_out = 1 ; comp = 0
         sign = 1
     elif spin==(-2):
-        fl = np.sqrt((ells-1)*(ells+2.))
+        fl = ells * 0
+        fl[ells>=1] = np.sqrt((ells[ells>=1]-1)*(ells[ells>=1]+2.))
         spin_out = -1 ; comp = 1
         if fudge:
             sign = 1 #!!! this sign is not understood
         else:
             sign = -1
     elif spin==2:
-        fl = np.sqrt((ells-2)*(ells+3.))
+        fl = ells * 0
+        fl[ells>=2] = np.sqrt((ells[ells>=2]-2)*(ells[ells>=2]+3.))
         spin_out = 3 ; comp = 0
         sign = -1
     fl[ells<2] = 0

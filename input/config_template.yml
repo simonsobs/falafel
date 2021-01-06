@@ -1,0 +1,4 @@
+signal_path: /global/cscratch1/sd/engelen/simsS1516_v0.4/data/
+data_path: /global/homes/j/jia_qu/so-lenspipe/data/
+mask_name: simonsobs_noise_mask_x_mask_V3_bool.fits
+theory_root: cosmo2017_10K_acc3
