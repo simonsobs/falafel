@@ -390,17 +390,15 @@ def qe_shear(px,mlmax,Talm=None,fTalm=None):
     prodmap=rmap*rmapT
     prodmap=enmap.samewcs(prodmap,omap)
     realsp2=prodmap[0] #spin +2 real space real space field
-    realsm2=prodmap[1] #spin -2 real space real space field
     realsp2 = enmap.samewcs(realsp2,omap)
-    realsm2=enmap.samewcs(realsm2,omap)
     #convert the above spin2 fields to spin pm 2 alms
     res1 = px.map2alm_spin(realsp2,mlmax,2,2) #will return pm2 
-    res2= px.map2alm_spin(realsm2,mlmax,-2,2) #will return pm2
     #spin 2 ylm 
-    ttalmsp2=rot2dalm(res1,2)[0] #pick up the spin 2 alm of the first one
-    ttalmsm2=rot2dalm(res1,2)[1] #pick up the spin -2 alm of the second one
-    shear_alm=ttalmsp2+ttalmsm2
+    ttalmsp2=rot2dalm(res1,2) 
+    shear_alm=ttalmsp2[0]+ttalmsp2[1]
     return shear_alm
+
+
 
 def qe_m4(px,mlmax,Talm=None,fTalm=None):
     """
@@ -414,25 +412,30 @@ def qe_m4(px,mlmax,Talm=None,fTalm=None):
     omap = enmap.zeros((2,)+px.shape,px.wcs) #load empty map with SO map wcs and shape
     #prepare temperature map
     rmapT=px.alm2map(np.stack((Talm,Talm)),spin=0,ncomp=1,mlmax=mlmax)[0]
+
     #find tbarf
     t_alm=hp.almxfl(fTalm,np.sqrt((ells-3.)*(ells-2.)*(ells-1.)*ells*(ells+1.)*(ells+2.)*(ells+3.)*(ells+4.)))
-
     alms=np.stack((t_alm,t_alm))
     rmap=px.alm2map_spin(alms,0,4,ncomp=2,mlmax=mlmax)
+    rmap = rot2d(rmap) #spin pm 4 maps
 
     #multiply the two fields together
-    rmap=np.nan_to_num(rmap)
     prodmap=rmap*rmapT
-    prodmap=np.nan_to_num(prodmap)
     prodmap=enmap.samewcs(prodmap,omap)
     realsp2=prodmap[0] #spin +4 real space real space field
+    #realsm2=prodmap[1] #spin -4 real space real space field
     realsp2 = enmap.samewcs(realsp2,omap)
+    #realsm2 = enmap.samewcs(realsm2,omap)
+
     #convert the above spin4 fields to spin pm 4 alms
+    #dmap = -irot2d(prodmap,spin=4).real
+    #res1=cs.map2alm(enmap.enmap(dmap,prodmap.wcs),spin=4,lmax=mlmax)
     res1 = px.map2alm_spin(realsp2,mlmax,4,4) #will return pm4
     #spin 4 ylm 
-    ttalmsp2=rot2dalm(res1,4)[0] #pick up the spin 4 alm of the first one
-    ttalmsm2=rot2dalm(res1,4)[1] #pick up the spin -4 alm of the second one
-    m4_alm=ttalmsp2+ttalmsm2
+    ttalmsp2=rot2dalm(res1,4)#pick up the spin 4 alm of the first one
+    #ttalmsm2=rot2dalm(res1,4)[1] #pick up the spin -4 alm of the second one
+    m4_alm=ttalmsp2[0]+ttalmsp2[1]
+
     return m4_alm
 
 def qe_pointsources(px,theory_func,theory_crossfunc,mlmax,fTalm=None,fEalm=None,fBalm=None,estimators=['TT','TE','EE','EB','TB','mv','mvpol'],xfTalm=None,xfEalm=None,xfBalm=None):
