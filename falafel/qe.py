@@ -81,8 +81,13 @@ class pixelization(object):
 
 def filter_alms(alms,ffunc,lmin=None,lmax=None):
     mlmax = hp.Alm.getlmax(alms.size)
-    ells = np.arange(0,mlmax)
-    filt = np.nan_to_num(ffunc(ells))+ells*0
+
+    if not(isinstance(ffunc, np.ndarray)):
+        ells = np.arange(0,mlmax)
+        filt = np.nan_to_num(ffunc(ells))+ells*0
+    else:
+        filt=ffunc
+        ells = np.arange(filt.size)
     if lmin is not None: filt[ells<lmin] = 0
     if lmax is not None: filt[ells>lmax] = 0
     return hp.almxfl(alms.copy(),filt)
@@ -398,7 +403,48 @@ def qe_shear(px,mlmax,Talm=None,fTalm=None):
     shear_alm=ttalmsp2[0]+ttalmsp2[1]
     return shear_alm
 
+def qe_multipole2(px,mlmax,v_L,Talm=None,fTalm=None):
+    """
+    px is a pixelization object, initialized like this:
+    px = pixelization(shape=shape,wcs=wcs) # for CAR
+    px = pixelization(nside=nside) # for healpix
+    v_L: list containing arrays of functions of L applied to each singular value expansion
+    sigma: list of singular values
+    Talm: list containing arrays of unfiltered Talms
+    fTalm: list containing arrays of filtered Talms by the corresponding right singular vector.
+    output: curved sky multipole m=2 estimator
+    
+    """
+    comm,rank,my_tasks = mpi.distribute(len(fTalm))
+    rank,size = comm.rank, comm.size
+    ells = np.arange(mlmax)
+    omap = enmap.zeros((2,)+px.shape,px.wcs) #load empty map with SO map wcs and shape
+    #prepare temperature map
+    rmapT=px.alm2map(np.stack((Talm,Talm)),spin=0,ncomp=1,mlmax=mlmax)[0]
+    #find tbarf
+    total=[]
+    for i in range(len(fTalm)):
+        t_alm=hp.almxfl(fTalm[i],np.sqrt((ells-1.)*ells*(ells+1.)*(ells+2.)))
+        alms=np.stack((t_alm,t_alm))
+        rmap=px.alm2map_spin(alms,0,2,ncomp=2,mlmax=mlmax)   #same as 2 2
+        #multiply the two fields together
+        prodmap=rmap*rmapT
+        prodmap=enmap.samewcs(prodmap,omap)
+        realsp2=prodmap[0] #spin +2 real space real space field
+        realsp2 = enmap.samewcs(realsp2,omap)
+        #convert the above spin2 fields to spin pm 2 alms
+        res1 = px.map2alm_spin(realsp2,mlmax,2,2) #will return pm2 
+        #spin 2 ylm 
+        ttalmsp2=rot2dalm(res1,2) 
+        shear_alm=ttalmsp2[0]+ttalmsp2[1]
+        Salm=hp.almxfl(shear_alm,v_L[i])
+        total.append(Salm)
+    total=np.array(total)
+    total=np.sum(total,axis=0)
+    #total=total[0]
 
+    
+    return total
 
 def qe_m4(px,mlmax,Talm=None,fTalm=None):
     """
