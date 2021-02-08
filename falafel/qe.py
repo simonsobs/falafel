@@ -1,6 +1,7 @@
 from pixell import curvedsky as cs, enmap
 import numpy as np
 import healpy as hp
+import sys
 
 """
 
@@ -9,7 +10,7 @@ import healpy as hp
 fudge = True
 
 class pixelization(object):
-    def __init__(self,shape=None,wcs=None,nside=None,dtype=np.float64,iter=0):
+    def __init__(self,shape=None,wcs=None,nside=None,dtype=np.float32,iter=0):
         self.dtype = dtype
         self.ctype = {np.float32: np.complex64, np.float64: np.complex128}[dtype]
         if shape is not None:
@@ -58,7 +59,9 @@ class pixelization(object):
             if spin!=0: 
                 res = hp.alm2map_spin(alm,nside=self.nside,spin=spin,lmax=mlmax)
                 return res
-            else: return hp.alm2map(alm,nside=self.nside,verbose=False,pol=False)[None]
+            else: 
+                # complex64 not supported here
+                return hp.alm2map(alm.astype(np.complex128),nside=self.nside,verbose=False,pol=False)[None]
         else:
             omap = enmap.empty((ncomp,)+self.shape,self.wcs,dtype=self.dtype)
             return cs.alm2map(alm,omap,spin=spin)
@@ -79,19 +82,29 @@ class pixelization(object):
             return cs.map2alm(enmap.enmap(dmap,imap.wcs),spin=spin_transform,lmax=lmax)
 
 
+def get_mlmax(alms):
+    if alms.ndim==2:
+        asize = alms[0].size
+    elif alms.ndim==1:
+        asize = alms.size
+    else:
+        print(alms.shape)
+        raise ValueError
+    return hp.Alm.getlmax(asize)
+
 def filter_alms(alms,filt,lmin=None,lmax=None):
     """
     Filter the alms with transfer function specified
     by filt (indexed starting at ell=0).
     """
-    mlmax = hp.Alm.getlmax(alms.size)
+    mlmax = get_mlmax(alms)
     ls = np.arange(filt.size)
     if lmax is not None:
         assert lmax<=ls.max()
         assert lmax<=mlmax
     if lmin is not None: filt[ls<lmin] = 0
     if lmax is not None: filt[ls>lmax] = 0
-    return hp.almxfl(alms.copy(),filt)
+    return cs.almxfl(alms.copy(),filt)
 
 def rot2d(fmap):
     """
@@ -120,11 +133,11 @@ def almxfl(alm,fl):
     alm = np.asarray(alm)
     ncomp = alm.shape[0]
     assert ncomp in [1,2,3]
-    res = alm.copy()
-    for i in range(ncomp): res[i] = hp.almxfl(alm[i],fl)
+    res = cs.almxfl(alm,fl)
     return res
 
-def pol_alms(Ealm,Balm): return np.stack((Ealm+1j*Balm,Ealm-1j*Balm))
+def pol_alms(Ealm,Balm): 
+    return np.stack((Ealm+1j*Balm,Ealm-1j*Balm))
 
 def gradient_spin(px,alm,mlmax,spin):
     """
@@ -370,7 +383,7 @@ def qe_shear(px,mlmax,Talm=None,fTalm=None):
     #prepare temperature map
     rmapT=px.alm2map(np.stack((Talm,Talm)),spin=0,ncomp=1,mlmax=mlmax)[0]
     #find tbarf
-    t_alm=hp.almxfl(fTalm,np.sqrt((ells-1.)*ells*(ells+1.)*(ells+2.)))
+    t_alm=cs.almxfl(fTalm,np.sqrt((ells-1.)*ells*(ells+1.)*(ells+2.)))
     alms=np.stack((t_alm,t_alm))
     rmap=px.alm2map_spin(alms,0,2,ncomp=2,mlmax=mlmax)   #same as 2 2
     #multiply the two fields together
@@ -401,7 +414,7 @@ def qe_m4(px,mlmax,Talm=None,fTalm=None):
     #prepare temperature map
     rmapT=px.alm2map(np.stack((Talm,Talm)),spin=0,ncomp=1,mlmax=mlmax)[0]
     #find tbarf
-    t_alm=hp.almxfl(fTalm,np.sqrt((ells-3.)*(ells-2.)*(ells-1.)*ells*(ells+1.)*(ells+2.)*(ells+3.)*(ells+4.)))
+    t_alm=cs.almxfl(fTalm,np.sqrt((ells-3.)*(ells-2.)*(ells-1.)*ells*(ells+1.)*(ells+2.)*(ells+3.)*(ells+4.)))
 
     alms=np.stack((t_alm,t_alm))
     rmap=px.alm2map_spin(alms,0,4,ncomp=2,mlmax=mlmax)
