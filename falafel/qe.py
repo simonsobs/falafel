@@ -404,12 +404,8 @@ def qe_shear(px,mlmax,Talm=None,fTalm=None):
     shear_alm=ttalmsp2[0]+ttalmsp2[1]
     return shear_alm
 
-<<<<<<< HEAD
 
 def hybrid_shear(px,mlmax,v_L,Talm=None,fTalm=None):
-=======
-def qe_multipole2_nompi(px,mlmax,v_L,Talm=None,fTalm=None):
->>>>>>> 89e5935fa5c4a1d755709ea4ce9ce40729fcc817
     """
     px is a pixelization object, initialized like this:
     px = pixelization(shape=shape,wcs=wcs) # for CAR
@@ -441,7 +437,6 @@ def qe_multipole2_nompi(px,mlmax,v_L,Talm=None,fTalm=None):
         #spin 2 ylm 
         ttalmsp2=rot2dalm(res1,2) 
         shear_alm=ttalmsp2[0]+ttalmsp2[1]
-<<<<<<< HEAD
         if i==0:
             filt=np.zeros(3000)
             filt[:1500]=np.ones(1500)
@@ -520,14 +515,10 @@ def qe_multipole2_nompi(px,mlmax,v_L,Talm=None,fTalm=None):
         vs=np.zeros(3000)
         vs[:len(v_L[i])]=v_L[i]
         Salm=hp.almxfl(shear_alm,vs)
-=======
-        Salm=hp.almxfl(shear_alm,v_L[i])
->>>>>>> 89e5935fa5c4a1d755709ea4ce9ce40729fcc817
         total.append(Salm)
     total=np.array(total)
     total=np.sum(total,axis=0)
     return total
-<<<<<<< HEAD
 
 
 
@@ -578,8 +569,6 @@ def qe_multipole2(px,mlmax,v_L,comm,rank,my_tasks,Talm=None,fTalm=None):
         print("hi")
         hp.write_alm(f'/home/r/rbond/jiaqu/scratch/so_lens/testalmnew{len(fTalm)}.fits',auto*len(fTalm))
 
-=======
->>>>>>> 89e5935fa5c4a1d755709ea4ce9ce40729fcc817
 
 def qe_m4(px,mlmax,Talm=None,fTalm=None):
     """
