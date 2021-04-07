@@ -455,21 +455,24 @@ def qe_pointsources(px,mlmax,fTalm,xfTalm=None):
     salm=0.5*res[0] 
     return salm
 
-def qe_source(px,mlmax,profile,fTalm,xfTalm=None):
+def qe_source(px,mlmax,fTalm,profile=None,xfTalm=None):
     """generalised source estimator
 
     Args:
-        px ([type]): [description]
-        mlmax ([type]): [description]
+        px (object): pixelization object
+        mlmax (int): maximum ell to perform alm2map transforms
         profile (narray): profile of reconstructed source
         fTalm (narray): inverse filtered temperature map
-        xfTalm ([type], optional): [description]. Defaults to None.
+        xfTalm (narray, optional): [description]. Defaults to None.
 
     Returns:
-        narray: tSZ profile reconstruction
+        narray:  profile reconstruction
     """
     if xfTalm is None:
         xfTalm = fTalm.copy()
+    if profile is None:
+        #point source reconstruction
+        profile=np.ones(mlmax)
     #filter the Tmaps with the source profiles
     fTalm=cs.almxfl(fTalm,profile)
     xfTalm=cs.almxfl(xfTalm,profile)
