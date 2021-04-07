@@ -461,9 +461,9 @@ def qe_source(px,mlmax,fTalm,profile=None,xfTalm=None):
     Args:
         px (object): pixelization object
         mlmax (int): maximum ell to perform alm2map transforms
-        profile (narray): profile of reconstructed source
+        profile (narray): profile of reconstructed source in ell space
         fTalm (narray): inverse filtered temperature map
-        xfTalm (narray, optional): [description]. Defaults to None.
+        xfTalm (narray, optional): inverse filtered temperature map. Defaults to None
 
     Returns:
         narray:  profile reconstruction
