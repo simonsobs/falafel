@@ -484,5 +484,5 @@ def qe_source(px,mlmax,fTalm,profile=None,xfTalm=None):
     res=px.map2alm_spin(prodmap,mlmax,0,0)
     #spin 0 salm 
     salm=0.5*res[0] 
-    salm=cs.almxfl(salm,profile)
+    salm=cs.almxfl(salm,1./profile)
     return salm
