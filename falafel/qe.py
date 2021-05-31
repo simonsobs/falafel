@@ -362,15 +362,16 @@ def qe_mask(px,response_cls_dict,mlmax,fTalm,xfTalm=None):
     """
     if xfTalm is None:
         xfTalm = fTalm.copy()
-    tw = filter_alms(fTalm,response_cls_dict['TT'])
+    tw = filter_alms(xfTalm,response_cls_dict['TT'])
     rmapT=px.alm2map_spin(np.stack((tw,tw)),0,0,ncomp=2,mlmax=mlmax)
     rmap=px.alm2map_spin(np.stack((fTalm,fTalm)),0,0,ncomp=2,mlmax=mlmax)
     #multiply the two fields together
     prodmap=rmap*rmapT
     if not(px.hpix): prodmap=enmap.enmap(prodmap,px.wcs)
     realsp=prodmap[0] #spin +0 real space  field
-    res=px.map2alm(realsp,mlmax)
-    return res
+    print(type(realsp))
+    res=px.map2alm_spin(realsp,mlmax,0,0)
+    return res[0] 
 
 def qe_shear(px,mlmax,Talm=None,fTalm=None):
     """
