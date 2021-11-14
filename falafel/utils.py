@@ -1,6 +1,4 @@
 from __future__ import print_function
-import matplotlib
-matplotlib.use("Agg")
 from orphics import maps,io,cosmology,mpi # msyriac/orphics ; pip install -e . --user
 from pixell import enmap,lensing as plensing,curvedsky, utils, enplot,powspec
 import numpy as np
