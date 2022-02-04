@@ -460,7 +460,8 @@ def qe_source(px,mlmax,fTalm,profile=None,xfTalm=None):
     Args:
         px (object): pixelization object
         mlmax (int): maximum ell to perform alm2map transforms
-        profile (narray): profile of reconstructed source in ell space
+        profile (narray): profile of reconstructed source in ell space (default 
+                          is None, which corresponds to the point-source case)
         fTalm (narray): inverse filtered temperature map
         xfTalm (narray, optional): inverse filtered temperature map. Defaults to None
 
@@ -469,12 +470,10 @@ def qe_source(px,mlmax,fTalm,profile=None,xfTalm=None):
     """
     if xfTalm is None:
         xfTalm = fTalm.copy()
-    if profile is None:
-        #point source reconstruction
-        profile=np.ones(mlmax)
-    #filter the Tmaps with the source profiles
-    fTalm=cs.almxfl(fTalm,profile)
-    xfTalm=cs.almxfl(xfTalm,profile)
+    if profile is not None:
+        #filter the Tmaps with the source profiles
+        fTalm=cs.almxfl(fTalm,profile)
+        xfTalm=cs.almxfl(xfTalm,profile)
     rmap1 = px.alm2map(fTalm,spin=0,ncomp=1,mlmax=mlmax)[0]
     rmap2 = px.alm2map(xfTalm,spin=0,ncomp=1,mlmax=mlmax)[0]
     #multiply the two fields together
@@ -482,6 +481,7 @@ def qe_source(px,mlmax,fTalm,profile=None,xfTalm=None):
     if not(px.hpix): prodmap=enmap.enmap(prodmap,px.wcs) #spin +0 real space  field
     res=px.map2alm_spin(prodmap,mlmax,0,0)
     #spin 0 salm 
-    salm=0.5*res[0] 
-    salm=cs.almxfl(salm,1./profile)
+    salm=0.5*res[0]
+    if profile is not None:
+        salm=cs.almxfl(salm,1./profile)
     return salm
