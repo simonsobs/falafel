@@ -454,12 +454,18 @@ def qe_source(px,mlmax,fTalm,profile=None,xfTalm=None):
     Returns:
         narray:  profile reconstruction
     """
+    if profile is not None:
+        #filter the first map with the source profile
+        fTalm = cs.almxfl(fTalm, profile)
+    #If we don't provide a second map,
+    #copy the first (which is already filtered)
     if xfTalm is None:
         xfTalm = fTalm.copy()
-    if profile is not None:
-        #filter the Tmaps with the source profiles
-        fTalm=cs.almxfl(fTalm,profile)
-        xfTalm=cs.almxfl(xfTalm,profile)
+    else:
+        #otherwise, we still need to filter
+        #the second map
+        if profile is not None:
+            xfTalm = cs.almxfl(xfTalm, profile)
     rmap1 = px.alm2map(fTalm,spin=0,ncomp=1,mlmax=mlmax)[0]
     rmap2 = px.alm2map(xfTalm,spin=0,ncomp=1,mlmax=mlmax)[0]
     #multiply the two fields together
