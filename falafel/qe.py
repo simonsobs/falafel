@@ -255,6 +255,8 @@ def qe_all(px,response_cls_dict,mlmax,
            estimators=['TT','TE','EE','EB','TB','mv','mvpol'],
            xfTalm=None,xfEalm=None,xfBalm=None):
     """
+    Returns reconstructed unnormalized estimators.
+
     Inputs are Cinv filtered alms.
     px is a pixelization object, initialized like this:
     px = pixelization(shape=shape,wcs=wcs) # for CAR
