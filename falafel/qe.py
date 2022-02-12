@@ -61,7 +61,7 @@ class pixelization(object):
                 return res
             else: 
                 # complex64 not supported here
-                return hp.alm2map(alm.astype(np.complex128),nside=self.nside,verbose=False,pol=False)[None]
+                return hp.alm2map(alm.astype(np.complex128),nside=self.nside,pol=False)[None]
         else:
             omap = enmap.empty((ncomp,)+self.shape,self.wcs,dtype=self.dtype)
             return cs.alm2map(alm,omap,spin=spin)
@@ -192,7 +192,6 @@ def qe_spin_temperature_deflection(px,Xalm,Yalm,mlmax):
     px = pixelization(shape=shape,wcs=wcs) # for CAR
     px = pixelization(nside=nside) # for healpix
     """
-
     grad = gradient_spin(px,np.stack((Xalm,Xalm)),mlmax,spin=0)
     ymap = px.alm2map(Yalm,spin=0,ncomp=1,mlmax=mlmax)[0]
     prod = -grad*ymap

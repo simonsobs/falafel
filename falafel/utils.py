@@ -1,6 +1,4 @@
 from __future__ import print_function
-import matplotlib
-matplotlib.use("Agg")
 from orphics import maps,io,cosmology,mpi # msyriac/orphics ; pip install -e . --user
 from pixell import enmap,lensing as plensing,curvedsky, utils, enplot,powspec
 import numpy as np
@@ -46,6 +44,7 @@ def get_theory_dicts(nells=None,lmax=9000,grad=True):
     ucls['TE'] = maps.interp(ells,gte)(ls) if grad else theory.lCl('TE',ls)
     ucls['EE'] = maps.interp(ells,ge)(ls) if grad else theory.lCl('EE',ls)
     ucls['BB'] = maps.interp(ells,gb)(ls) if grad else theory.lCl('BB',ls)
+    ucls['kk'] = theory.gCl('kk',ls)
     tcls['TT'] = theory.lCl('TT',ls) + nells['TT']
     tcls['TE'] = theory.lCl('TE',ls)
     tcls['EE'] = theory.lCl('EE',ls) + nells['EE']
@@ -59,6 +58,14 @@ def get_theory_dicts_white_noise(beam_fwhm,noise_t,noise_p=None,lmax=9000,grad=T
     nells['TT'] = (noise_t*np.pi/180./60.)**2. / maps.gauss_beam(beam_fwhm,ls)**2.
     nells['EE'] = (noise_p*np.pi/180./60.)**2. / maps.gauss_beam(beam_fwhm,ls)**2.
     nells['BB'] = (noise_p*np.pi/180./60.)**2. / maps.gauss_beam(beam_fwhm,ls)**2.
+    return get_theory_dicts(nells=nells,lmax=lmax,grad=grad)
+
+def get_theory_dicts_fnoise(fnoise_t,fnoise_e=None,fnoise_b=None,lmax=9000,grad=True):
+    ls = np.arange(lmax+1)
+    nells = {}
+    nells['TT'] = fnoise_t(ls)
+    nells['EE'] = fnoise_e(ls) if not(fnoise_e is None) else nells['TT']*2.
+    nells['BB'] = fnoise_b(ls) if not(fnoise_b is None) else nells['EE']
     return get_theory_dicts(nells=nells,lmax=lmax,grad=grad)
 
 
