@@ -435,16 +435,33 @@ def qe_m4(px,mlmax,Talm=None,fTalm=None):
     m4_alm=ttalmsp2+ttalmsm2
     return m4_alm
 
-def qe_pointsources(px,mlmax,fTalm,xfTalm=None):
+
+def qe_source(px,mlmax,fTalm,profile=None,xfTalm=None):
+    """generalised source estimator
+
+    Args:
+        px (object): pixelization object
+        mlmax (int): maximum ell to perform alm2map transforms
+        profile (narray): profile of reconstructed source in ell space. 
+                          If none is provided, defaults to point source hardening
+        fTalm (narray): inverse filtered temperature map
+        xfTalm (narray, optional): inverse filtered temperature map. Defaults to None
+
+    Returns:
+        narray:  profile reconstruction
     """
-    Inputs are Cinv filtered alms.
-    px is a pixelization object, initialized like this:
-    px = pixelization(shape=shape,wcs=wcs) # for CAR
-    px = pixelization(nside=nside) # for healpix
-    output: Point source estimator alms
-    """
+    if profile is not None:
+        #filter the first map with the source profile
+        fTalm = cs.almxfl(fTalm, profile)
+    #If we don't provide a second map,
+    #copy the first (which is already filtered)
     if xfTalm is None:
         xfTalm = fTalm.copy()
+    else:
+        #otherwise, we still need to filter
+        #the second map
+        if profile is not None:
+            xfTalm = cs.almxfl(xfTalm, profile)
     rmap1 = px.alm2map(fTalm,spin=0,ncomp=1,mlmax=mlmax)[0]
     rmap2 = px.alm2map(xfTalm,spin=0,ncomp=1,mlmax=mlmax)[0]
     #multiply the two fields together
@@ -452,5 +469,7 @@ def qe_pointsources(px,mlmax,fTalm,xfTalm=None):
     if not(px.hpix): prodmap=enmap.enmap(prodmap,px.wcs) #spin +0 real space  field
     res=px.map2alm_spin(prodmap,mlmax,0,0)
     #spin 0 salm 
-    salm=0.5*res[0] 
+    salm=0.5*res[0]
+    if profile is not None:
+        salm=cs.almxfl(salm,1./profile)
     return salm
