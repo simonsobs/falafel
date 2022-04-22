@@ -9,7 +9,6 @@ import traceback
 import healpy as hp
 from . import qe
 import math
-from actsims.signal import get_cmb_alm_v0p5,get_input_alms_v0p5
 
 config = io.config_from_yaml(os.path.dirname(os.path.abspath(__file__)) + "/../input/config.yml")
 opath = config['data_path']
@@ -60,12 +59,12 @@ def get_theory_dicts_white_noise(beam_fwhm,noise_t,noise_p=None,lmax=9000,grad=T
     nells['BB'] = (noise_p*np.pi/180./60.)**2. / maps.gauss_beam(beam_fwhm,ls)**2.
     return get_theory_dicts(nells=nells,lmax=lmax,grad=grad)
 
-def get_theory_dicts_fnoise(fnoise_t,fnoise_e=None,fnoise_b=None,lmax=9000,grad=True):
+def get_theory_dicts_fnoise(fnoise_t,fnoise_e=None,fnoise_b=None,lmax=9000,grad=True,scale_noise=1.):
     ls = np.arange(lmax+1)
     nells = {}
-    nells['TT'] = fnoise_t(ls)
-    nells['EE'] = fnoise_e(ls) if not(fnoise_e is None) else nells['TT']*2.
-    nells['BB'] = fnoise_b(ls) if not(fnoise_b is None) else nells['EE']
+    nells['TT'] = scale_noise*fnoise_t(ls)
+    nells['EE'] = scale_noise*fnoise_e(ls) if not(fnoise_e is None) else scale_noise*nells['TT']*2.
+    nells['BB'] = scale_noise*fnoise_b(ls) if not(fnoise_b is None) else scale_noise*nells['EE']
     return get_theory_dicts(nells=nells,lmax=lmax,grad=grad)
 
 
