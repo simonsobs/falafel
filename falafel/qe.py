@@ -364,8 +364,8 @@ def qe_mask(px,response_cls_dict,mlmax,fTalm,xfTalm=None):
     if xfTalm is None:
         xfTalm = fTalm.copy()
     tw = filter_alms(fTalm,response_cls_dict['TT'])
-    rmapT=px.alm2map_spin(np.stack((tw,tw)),0,0,ncomp=2,mlmax=mlmax)
-    rmap=px.alm2map_spin(np.stack((fTalm,fTalm)),0,0,ncomp=2,mlmax=mlmax)
+    rmapT=np.real(px.alm2map_spin(np.stack((tw,tw)),0,0,ncomp=2,mlmax=mlmax))
+    rmap=np.real(px.alm2map_spin(np.stack((fTalm,fTalm)),0,0,ncomp=2,mlmax=mlmax))
     #multiply the two fields together
     prodmap=rmap*rmapT
     if not(px.hpix): prodmap=enmap.enmap(prodmap,px.wcs)
