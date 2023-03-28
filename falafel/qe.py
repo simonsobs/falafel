@@ -442,12 +442,8 @@ def qe_source(px,mlmax,fTalm,profile=None,xfTalm=None):
     Args:
         px (object): pixelization object
         mlmax (int): maximum ell to perform alm2map transforms
-<<<<<<< HEAD
-        profile (narray): profile of reconstructed source in ell space (default 
-                          is None, which corresponds to the point-source case)
-=======
-        profile (narray): profile of reconstructed source in ell space. If none is provided, defaults to point source hardening
->>>>>>> 653a6a8 (removed redundant point source estimaror)
+        profile (narray): profile of reconstructed source in ell space. 
+                          If none is provided, defaults to point source hardening
         fTalm (narray): inverse filtered temperature map
         xfTalm (narray, optional): inverse filtered temperature map. Defaults to None
 
