@@ -3,11 +3,6 @@ import numpy as np
 import healpy as hp
 import sys
 
-"""
-
-"""
-
-fudge = True
 
 class pixelization(object):
     def __init__(self,shape=None,wcs=None,nside=None,dtype=np.float32,iter=0):
@@ -160,10 +155,7 @@ def gradient_spin(px,alm,mlmax,spin):
         fl = ells * 0
         fl[ells>=1] = np.sqrt((ells[ells>=1]-1)*(ells[ells>=1]+2.))
         spin_out = -1 ; comp = 1
-        if fudge:
-            sign = 1 #!!! this sign is not understood
-        else:
-            sign = -1
+        sign = 1
     elif spin==2:
         fl = ells * 0
         fl[ells>=2] = np.sqrt((ells[ells>=2]-2)*(ells[ells>=2]+3.))
@@ -214,10 +206,7 @@ def qe_spin_pol_deflection(px,X_Ealm,X_Balm,Y_Ealm,Y_Balm,mlmax):
     prod = -grad_m2*ymap[0]-grad_p2*ymap[1]
     if not(px.hpix):
         prod = enmap.enmap(prod,px.wcs)
-    if fudge:
-        return prod/2 # !! this factor of 2 is not understood
-    else:
-        return prod
+    return prod/2
     
 def qe_temperature_only(px,Xalm,Yalm,mlmax):
     """
