@@ -1,0 +1,6 @@
+
+
+signal_path: /rds/project/dirac_vol5/rds-dirac-dp002/AdvACT/simulations/signal_v0.4/
+data_path: /home/ia404/gitreps/so-lenspipe/data/
+mask_name: simonsobs_noise_mask_x_mask_V3_bool.fits
+theory_root: cosmo2017_10K_acc3
