@@ -14,6 +14,26 @@ This library allows you to reconstruct mode-couplings (e.g. CMB lensing, kSZ) on
 
 Only the unnormalized quadratic estimate is provided. For the full-sky normalization for various estimators, we recommend tempura (https://github.com/simonsobs/tempura).
 
+Installation
+------------
+
+Use
+
+.. code-block:: console
+
+    python setup.py develop
+
+(for in-place development)
+
+or 
+
+.. code-block:: console
+
+    python setup.py install
+
+
+(Note that ``pip install`` may not work)
+
 A good place to start with the code is `tests/simple.py`.
 
 
