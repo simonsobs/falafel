@@ -36,5 +36,7 @@ or
 
 A good place to start with the code is `tests/simple.py`.
 
+Copy `input/config_template.yaml` to `input/config.yaml` and edit the latter to point to paths in your filesystem.
+
 
 
