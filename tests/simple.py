@@ -9,7 +9,7 @@ from falafel import qe,utils
 import pytempura
 
 # The estimators to test lensing for
-# ests = ['TT','mv','mvpol','EE','TE','EB','TB']
+#ests = ['TT','mv','mvpol','EE','TE','EB','TB']
 ests = ['mv']
 # ests = ['TT']
 
@@ -38,7 +38,7 @@ ucls,tcls = utils.get_theory_dicts_white_noise(beam_fwhm,noise_t)
 
 
 # Get normalizations
-Als = pytempura.get_norms(ests,ucls,tcls,lmin,lmax,k_ellmax=mlmax,no_corr=False)
+Als = pytempura.get_norms(ests,ucls,ucls,tcls,lmin,lmax,k_ellmax=mlmax)
 
 # Filter
 Xdat = utils.isotropic_filter(alm,tcls,lmin,lmax)
@@ -58,10 +58,8 @@ kalms = {}
 icls = hp.alm2cl(ikalm,ikalm)
 ells = np.arange(len(icls))
 bin_edges = np.geomspace(2,mlmax,15)
-print(bin_edges)
 binner = stats.bin1D(bin_edges)
 bin = lambda x: binner.bin(ells,x)
-print(ells.shape)
 for est in ests:
     pl = io.Plotter('CL')
     pl2 = io.Plotter('rCL',xyscale='loglin')
