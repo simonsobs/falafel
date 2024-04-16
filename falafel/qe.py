@@ -67,11 +67,11 @@ class pixelization(object):
             return cs.alm2map(alm,omap,spin=spin)
         
 
-    def map2alm(self,imap,lmax):
+    def map2alm(self,imap,lmax,tweak=True):
         if self.hpix:
             return hp.map2alm(imap,lmax=lmax,iter=self.iter)
         else:
-            return cs.map2alm(imap,lmax=lmax)
+            return cs.map2alm(imap,lmax=lmax,tweak=tweak)
 
     def map2alm_spin(self,imap,lmax,spin_alm,spin_transform):
         dmap = -irot2d(np.stack((imap,imap.conj())),spin=spin_alm).real
@@ -79,7 +79,7 @@ class pixelization(object):
             res = hp.map2alm_spin(dmap,lmax=lmax,spin=spin_transform)
             return res
         else:
-            return cs.map2alm(enmap.enmap(dmap,imap.wcs),spin=spin_transform,lmax=lmax)
+            return cs.map2alm(enmap.enmap(dmap,imap.wcs),spin=spin_transform,lmax=lmax,tweak=True)
 
 
 def get_mlmax(alms):
@@ -370,7 +370,7 @@ def qe_mask(px,response_cls_dict,mlmax,fTalm,xfTalm=None):
     prodmap=rmap*rmapT
     if not(px.hpix): prodmap=enmap.enmap(prodmap,px.wcs)
     realsp=prodmap[0] #spin +0 real space  field
-    res=px.map2alm(realsp,mlmax)
+    res=px.map2alm(realsp,mlmax, tweak=True)
     return res
 
 def qe_shear(px,mlmax,Talm=None,fTalm=None):
@@ -476,11 +476,12 @@ def qe_source(px,mlmax,fTalm,profile=None,xfTalm=None):
 
 def qe_rot(px,response_cls_dict,mlmax,fEalms,fBalms):
     """
-    Inputs are Cinv filtered alms.
+    Inputs are Cinv filtered E and B alms.
     px is a pixelization object, initialized like this:
     px = pixelization(shape=shape,wcs=wcs) # for CAR
     px = pixelization(nside=nside) # for healpix
-    output: Mask estimator alms
+    fEalms, fBalms = Inverse Variance filtered E and B alms
+    output: Birefringence angle alpha alms
     """
     fEalms = filter_alms(fEalms,response_cls_dict['EE']) 
     zeros = np.zeros(fEalms.shape)
@@ -491,3 +492,23 @@ def qe_rot(px,response_cls_dict,mlmax,fEalms,fBalms):
     diffmap = (uE*qB)-(qE*uB)
     alpha_alm=-2*px.map2alm(diffmap,mlmax)
     return alpha_alm
+
+def qe_tau_pol(px,response_cls_dict,mlmax,fEalms,fBalms):
+    """
+    Inputs are Cinv filtered alms.
+    px is a pixelization object, initialized like this:
+    px = pixelization(shape=shape,wcs=wcs) # for CAR
+    px = pixelization(nside=nside) # for healpix
+    fEalms, fBalms = Inverse Variance filtered E and B alms
+    output: POLARIZATION tau alms
+    """
+    # apply Weiner filter to E alms, to upweight the E dominant modes
+    fEalms = filter_alms(fEalms,response_cls_dict['EE']) 
+    zeros = np.zeros(fEalms.shape)
+    # get Q and U comps from filtered E and B
+    qE,uE = cs.alm2map(np.array([fEalms,zeros]),enmap.ndmap(np.zeros((2,)+px.shape),px.wcs),spin=[2])
+    qB,uB = cs.alm2map(np.array([zeros,fBalms]),enmap.ndmap(np.zeros((2,)+px.shape),px.wcs),spin=[2])
+    # make the tau map
+    diffmap = (uE*uB)+(qE*qB)
+    tau_alm = -px.map2alm(diffmap,mlmax)
+    return tau_alm
