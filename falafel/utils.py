@@ -88,11 +88,15 @@ def change_alm_lmax(alms, lmax, dtype=np.complex128):
 
 
 # performs isotropic (or Wiener) filtering with / without TE mode mixing
-def isotropic_filter(alm,ucls,tcls,lmin,lmax,ignore_te=True,wiener=False):
-    ucltt, tcltt = ucls['TT'], tcls['TT']
-    uclte, tclte = ucls['TE'], tcls['TE']
-    uclee, tclee = ucls['EE'], tcls['EE']
-    uclbb, tclbb = ucls['BB'], tcls['BB']
+# must provide ucls if using Wiener filtering
+def isotropic_filter(alm,tcls,lmin,lmax,ignore_te=True,
+                     ucls=None, wiener=False):
+    if ucls is None:
+        ucltt, uclte, uclee, uclbb = None, None, None, None
+    else:
+        ucltt, uclte, uclee, uclbb = ucls['TT'], ucls['TE'], ucls['EE'], ucls['BB']
+
+    tcltt, tclte, tclee, tclbb = tcls['TT'], tcls['TE'], tcls['EE'], tcls['BB']
 
     if ignore_te:
         filt_T, filt_E, filt_B = tcltt*0, tclee*0, tclbb*0
@@ -101,6 +105,9 @@ def isotropic_filter(alm,ucls,tcls,lmin,lmax,ignore_te=True,wiener=False):
             filt_E[2:] = 1./tclee[2:]
             filt_B[2:] = 1./tclbb[2:]
             if wiener:
+                if ucls is None:
+                    print("ERROR: Must provide ucls if Wiener filtering.")
+                    return [None, None, None]
                 filt_T[2:] *= ucltt[2:]
                 filt_E[2:] *= uclee[2:]
                 filt_B[2:] *= uclbb[2:]
@@ -123,6 +130,9 @@ def isotropic_filter(alm,ucls,tcls,lmin,lmax,ignore_te=True,wiener=False):
             filt_BB[2:] = 1. / tclbb[2:]
 
             if wiener:
+                if ucls is None:
+                    print("ERROR: Must provide ucls if Wiener filtering.")
+                    return [None, None, None]
                 filt_TT[2:] *= (ucltt[2:]*tclee[2:] - uclte[2:]*tclte[2:])
                 filt_EE[2:] *= (uclee[2:]*tcltt[2:] - uclte[2:]*tclte[2:])
                 filt_BB[2:] *= uclbb[2:]
