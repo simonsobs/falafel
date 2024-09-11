@@ -86,7 +86,8 @@ def change_alm_lmax(alms, lmax, dtype=np.complex128):
         alms_out[..., idx_osidx:idx_oeidx+1] = alms[..., idx_isidx:idx_ieidx+1].copy()
     return alms_out
 
-
+# performs isotropic inverse-variance filtering
+# with / without TE mode mixing
 def isotropic_filter(alm,tcls,lmin,lmax,ignore_te=True):
     # Filter isotropically
     tcltt = tcls['TT']
@@ -120,5 +121,43 @@ def isotropic_filter(alm,tcls,lmin,lmax,ignore_te=True):
         talm = qe.filter_alms(alm[0],filt_T_T,lmin=lmin,lmax=lmax) + qe.filter_alms(alm[1],filt_T_E,lmin=lmin,lmax=lmax)
         ealm = qe.filter_alms(alm[0],filt_E_T,lmin=lmin,lmax=lmax) + qe.filter_alms(alm[1],filt_E_E,lmin=lmin,lmax=lmax)
         balm = qe.filter_alms(alm[2],filt_B,lmin=lmin,lmax=lmax)
+        
+    return [talm,ealm,balm]
+
+# performs isotropic Wiener filtering with / without TE mode mixing
+def isotropic_wfilter(alm,ucls,tcls,lmin,lmax,ignore_te=True):
+    ucltt, tcltt = ucls['TT'], tcls['TT']
+    uclte, tclte = ucls['TE'], tcls['TE']
+    uclee, tclee = ucls['EE'], tcls['EE']
+    uclbb, tclbb = ucls['BB'], tcls['BB']
+
+    if ignore_te:
+        filt_T, filt_E, filt_B = tcltt*0, tclee*0, tclbb*0
+        with np.errstate(divide='ignore', invalid='ignore'):
+            filt_T[2:] = ucltt[2:]/tcltt[2:]
+            filt_E[2:] = uclee[2:]/tclee[2:]
+            filt_B[2:] = uclbb[2:]/tclbb[2:]
+        talm = qe.filter_alms(alm[0],filt_T,lmin=lmin,lmax=lmax)
+        ealm = qe.filter_alms(alm[1],filt_E,lmin=lmin,lmax=lmax)
+        balm = qe.filter_alms(alm[2],filt_B,lmin=lmin,lmax=lmax)
+
+    else:
+        filt_TT, filt_TE, filt_ET, filt_EE = tcltt*0, tclte*0, tclte*0, tclee*0
+        filt_BB = tclbb*0
+
+        with np.errstate(divide='ignore', invalid='ignore'):
+            # det of TT + EE block (aka prefactor of its inverse)
+            te_det = 1. / (tcltt[2:]*tclee[2:] - tclte[2:]**2.)
+            filt_TT[2:] = (ucltt[2:]*tclee[2:] - uclte[2:]*tclte[2:]) * te_det
+            filt_EE[2:] = (uclee[2:]*tcltt[2:] - uclte[2:]*tclte[2:]) * te_det
+            filt_BB[2:] = uclbb[2:] / tclbb[2:]
+            # these two are no longer symmetric 
+            filt_TE[2:] = (uclte[2:]*tcltt[2:] - ucltt[2:]*tclte[2:]) * te_det
+            filt_ET[2:] = (uclte[2:]*tclee[2:] - uclee[2:]*tclte[2:]) * te_det
+        talm = qe.filter_alms(alm[0],filt_TT,lmin=lmin,lmax=lmax) + \
+               qe.filter_alms(alm[1],filt_TE,lmin=lmin,lmax=lmax)
+        ealm = qe.filter_alms(alm[0],filt_ET,lmin=lmin,lmax=lmax) + \
+               qe.filter_alms(alm[1],filt_EE,lmin=lmin,lmax=lmax)
+        balm = qe.filter_alms(alm[2],filt_BB,lmin=lmin,lmax=lmax)
         
     return [talm,ealm,balm]
