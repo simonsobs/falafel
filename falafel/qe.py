@@ -71,7 +71,7 @@ class pixelization(object):
         if self.hpix:
             return hp.map2alm(imap,lmax=lmax,iter=self.iter)
         else:
-            return cs.map2alm(imap,lmax=lmax,tweak=tweak)
+            return cs.map2alm(imap,lmax=lmax,tweak=True)
 
     def map2alm_spin(self,imap,lmax,spin_alm,spin_transform):
         dmap = -irot2d(np.stack((imap,imap.conj())),spin=spin_alm).real
@@ -85,7 +85,7 @@ class pixelization(object):
 def get_mlmax(alms):
     if alms.ndim==2:
         asize = alms[0].size
-    elif alms.ndim==1:
+    elif alms.ndim == 1:
         asize = alms.size
     else:
         print(alms.shape)
@@ -361,6 +361,9 @@ def qe_mask(px,response_cls_dict,mlmax,fTalm,xfTalm=None):
     px = pixelization(nside=nside) # for healpix
     output: Mask estimator alms
     """
+    if np.shape(fTalm)[0] > 1 and np.shape(fTalm)[0] < 4:
+        fTalm = fTalm[0]
+
     if xfTalm is None:
         xfTalm = fTalm.copy()
     tw = filter_alms(fTalm,response_cls_dict['TT'])
@@ -483,14 +486,14 @@ def qe_rot(px,response_cls_dict,mlmax,fEalms,fBalms):
     fEalms, fBalms = Inverse Variance filtered E and B alms
     output: Birefringence angle alpha alms
     """
-    fEalms = filter_alms(fEalms,response_cls_dict['EE']) 
+    fEalms = filter_alms(fEalms,response_cls_dict['EE'])
     zeros = np.zeros(fEalms.shape)
     # get Q and U comps from filtered E and B
-    qE,uE = cs.alm2map(np.array([fEalms,zeros]),enmap.ndmap(np.zeros((2,)+px.shape),px.wcs),spin=[2])
-    qB,uB = cs.alm2map(np.array([zeros,fBalms]),enmap.ndmap(np.zeros((2,)+px.shape),px.wcs),spin=[2])
+    qE,uE = cs.alm2map(np.array([fEalms,zeros]),enmap.ndmap(np.zeros((2,)+px.shape),px.wcs),spin=[2],tweak=True)
+    qB,uB = cs.alm2map(np.array([zeros,fBalms]),enmap.ndmap(np.zeros((2,)+px.shape),px.wcs),spin=[2],tweak=True)
     # make the biref map
     diffmap = (uE*qB)-(qE*uB)
-    alpha_alm=-2*px.map2alm(diffmap,mlmax)
+    alpha_alm=-2*px.map2alm(diffmap,mlmax,tweak=True) #added tweak=Trues on Mar 31
     return alpha_alm
 
 def qe_tau_pol(px,response_cls_dict,mlmax,fEalms,fBalms):
