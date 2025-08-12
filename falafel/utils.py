@@ -30,28 +30,38 @@ def get_kappa_alm(i,path=config['signal_path']):
     fname = path + "fullskyPhi_alm_%s.fits" % istr
     return plensing.phi_to_kappa(hp.read_alm(fname))
 
-def get_tau_alm(i, withlens=False):
-# want this function to call sims that I make, just like the above function calls pre-made sims
-# TODO: MAKE TAU SIMS. DON'T KNOW IF JUST MAKING GRFS OF TAU THEORY SIGNAL IS RIGHT. 
-# I think I might have to do some inpainting?.... or use websky?...
-# For now, I will make GRF tau sims from a theory curve. 
-    path="/project/r/rbond/darbyk12/sims/tausims/"
-    istr = str(i).zfill(5)
-    if withlens:
-        fname = path + "fullskyTauLens_alm_%s.fits" % istr
+def get_coup_alm(i, path=config['coup_path'], withlens=True, coup=None):
+    # want this function to call sims that I make, just like the above function calls pre-made sims
+    # TODO: MAKE TAU SIMS. DON'T KNOW IF JUST MAKING GRFS OF TAU THEORY SIGNAL IS RIGHT. 
+    # I think I might have to do some inpainting?.... or use websky?...
+    # For now, I will make GRF tau sims from a theory curve.
+    if coup=="tau":
+        path = path + "/tausims/"
+        istr = str(i).zfill(5)
+        if withlens:
+            print("Lensed τ sims")
+            fname = path + "fullskyTauLens_alm_%s.fits" % istr
+        else:
+            print("Unlensed τ sims")
+            fname = path + "fullskyTau_alm_%s.fits" % istr
+    
+    elif coup=="rot":
+        path = path + "/birefsims/"
+        istr = str(i).zfill(5)
+        print("Only lensed sims for birefringence.")
+        fname = path + "fullskyAlphaLens_alm_%s.fits" % istr
+
     else:
-        fname = path + "fullskyTau_alm_%s.fits" % istr
+        raise ValueError("No coupling enabled by that name.")
+    
     return hp.read_alm(fname)
 
-def get_rot_alm(i, withlens=False):
-# want this function to call sims that I make, just like the above function calls pre-made sims
-# DON'T KNOW IF JUST MAKING GRFS OF ALPHA THEORY SIGNAL IS RIGHT. 
-# I think I might have to do some inpainting?.... or use websky?...
-# For now, I will make GRF tau sims from a theory curve. 
-    path="/project/r/rbond/darbyk12/sims/birefsims/"
-    istr = str(i).zfill(5)
-    fname = path + "fullskyAlphaLens_alm_%s.fits" % istr
-    return hp.read_alm(fname)
+# def get_rot_alm(i, withlens=False):
+# # want this function to call sims that I make, just like the above function calls pre-made sims
+# # DON'T KNOW IF JUST MAKING GRFS OF ALPHA THEORY SIGNAL IS RIGHT. 
+# # I think I might have to do some inpainting?.... or use websky?...
+# # For now, I will make GRF tau sims from a theory curve. 
+    
 
 def get_theory_dicts(nells=None,lmax=9000,grad=True):
     thloc = os.path.dirname(os.path.abspath(__file__)) + "/../data/" + config['theory_root']

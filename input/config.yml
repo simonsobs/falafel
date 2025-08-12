@@ -1,0 +1,5 @@
+signal_path: /scratch/r/rbond/msyriac/data/sims/alex/v0.4/
+data_path: /scratch/r/rbond/darbyk12/data
+mask_name: simonsobs_noise_mask_x_mask_V3_bool.fits
+theory_root: cosmo2017_10K_acc3
+coup_path: /project/r/rbond/darbyk12/sims/
