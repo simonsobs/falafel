@@ -137,13 +137,13 @@ def isotropic_filter(alm,tcls,lmin,lmax,ignore_te=True,
                 filt_EE[2:] *= (uclee[2:]*tcltt[2:] - uclte[2:]*tclte[2:])
                 filt_BB[2:] *= uclbb[2:]
                 # these two are no longer symmetric 
-                filt_TE[2:] *= (uclte[2:]*tcltt[2:] - ucltt[2:]*tclte[2:])
-                filt_ET[2:] *= (uclte[2:]*tclee[2:] - uclee[2:]*tclte[2:])
+                filt_ET[2:] *= (uclte[2:]*tcltt[2:] - ucltt[2:]*tclte[2:])
+                filt_TE[2:] *= (uclte[2:]*tclee[2:] - uclee[2:]*tclte[2:])
             else:
                 filt_TT[2:] *= tclee[2:]
                 filt_EE[2:] *= tcltt[2:]
-                filt_TE[2:] *= -tclte[2:]
                 filt_ET[2:] *= -tclte[2:]
+                filt_TE[2:] *= -tclte[2:]
 
         talm = qe.filter_alms(alm[0],filt_TT,lmin=lmin,lmax=lmax) + \
                qe.filter_alms(alm[1],filt_TE,lmin=lmin,lmax=lmax)
