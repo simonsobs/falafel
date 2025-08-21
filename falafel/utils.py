@@ -105,9 +105,7 @@ def isotropic_filter(alm,tcls,lmin,lmax,ignore_te=True,
             filt_E[2:] = 1./tclee[2:]
             filt_B[2:] = 1./tclbb[2:]
             if wiener:
-                if ucls is None:
-                    print("ERROR: Must provide ucls if Wiener filtering.")
-                    return [None, None, None]
+                assert ucls is not None, "Must provide ucls if Wiener filtering."
                 filt_T[2:] *= ucltt[2:]
                 filt_E[2:] *= uclee[2:]
                 filt_B[2:] *= uclbb[2:]
@@ -130,9 +128,7 @@ def isotropic_filter(alm,tcls,lmin,lmax,ignore_te=True,
             filt_BB[2:] = 1. / tclbb[2:]
 
             if wiener:
-                if ucls is None:
-                    print("ERROR: Must provide ucls if Wiener filtering.")
-                    return [None, None, None]
+                assert ucls is not None, "Must provide ucls if Wiener filtering."
                 filt_TT[2:] *= (ucltt[2:]*tclee[2:] - uclte[2:]*tclte[2:])
                 filt_EE[2:] *= (uclee[2:]*tcltt[2:] - uclte[2:]*tclte[2:])
                 filt_BB[2:] *= uclbb[2:]
