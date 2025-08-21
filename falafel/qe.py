@@ -462,3 +462,23 @@ def qe_source(px,mlmax,fTalm,profile=None,xfTalm=None):
     if profile is not None:
         salm=cs.almxfl(salm,1./profile)
     return salm
+
+def qe_rot(px,response_cls_dict,mlmax,fEalms,fBalms):
+    """
+    Inputs are Cinv filtered E and B alms.
+    px is a pixelization object, initialized like this:
+    px = pixelization(shape=shape,wcs=wcs) # for CAR
+    px = pixelization(nside=nside) # for healpix
+    fEalms, fBalms = Inverse Variance filtered E and B alms
+    output: Birefringence angle alpha alms
+    """
+    fEalms = filter_alms(fEalms,response_cls_dict['EE']) 
+    zeros = np.zeros(fEalms.shape)
+    # get Q and U components from filtered E and B
+    qE,uE = cs.alm2map(np.array([fEalms,zeros]),enmap.ndmap(np.zeros((2,)+px.shape),px.wcs),spin=[2])
+    qB,uB = cs.alm2map(np.array([zeros,fBalms]),enmap.ndmap(np.zeros((2,)+px.shape),px.wcs),spin=[2])
+    # make the biref map
+    diffmap = (uE*qB)-(qE*uB)
+    alpha_alm=-2*px.map2alm(diffmap,mlmax)
+    return alpha_alm
+

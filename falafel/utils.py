@@ -144,7 +144,7 @@ def isotropic_filter(alm,tcls,lmin,lmax,ignore_te=True,
                 filt_EE[2:] *= tcltt[2:]
                 filt_ET[2:] *= -tclte[2:]
                 filt_TE[2:] *= -tclte[2:]
-
+        
         talm = qe.filter_alms(alm[0],filt_TT,lmin=lmin,lmax=lmax) + \
                qe.filter_alms(alm[1],filt_TE,lmin=lmin,lmax=lmax)
         ealm = qe.filter_alms(alm[0],filt_ET,lmin=lmin,lmax=lmax) + \
