@@ -352,7 +352,7 @@ def qe_mask(px,response_cls_dict,mlmax,fTalm,xfTalm=None):
     """
     if xfTalm is None:
         xfTalm = fTalm.copy()
-    tw = filter_alms(fTalm,response_cls_dict['TT'])
+    tw = filter_alms(xfTalm,response_cls_dict['TT']) #### Changed this to xfTalm on Oct 22, 2025. Was not using second alm before, even if passed.
     rmapT=px.alm2map_spin(np.stack((tw,tw)),0,0,ncomp=2,mlmax=mlmax)
     rmap=px.alm2map_spin(np.stack((fTalm,fTalm)),0,0,ncomp=2,mlmax=mlmax)
     #multiply the two fields together
