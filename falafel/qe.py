@@ -152,12 +152,12 @@ def gradient_spin(px,alm,mlmax,spin):
         spin_out = 1 ; comp = 0
         sign = 1
     elif spin==(-2):
-        fl = ells * 0
+        fl = np.zeros_like(ells, dtype=float)
         fl[ells>=1] = np.sqrt((ells[ells>=1]-1)*(ells[ells>=1]+2.))
         spin_out = -1 ; comp = 1
         sign = 1
     elif spin==2:
-        fl = ells * 0
+        fl = np.zeros_like(ells, dtype=float)
         fl[ells>=2] = np.sqrt((ells[ells>=2]-2)*(ells[ells>=2]+3.))
         spin_out = 3 ; comp = 0
         sign = -1
