@@ -48,7 +48,6 @@ recon = qe.qe_all(px,ucls,mlmax,
                   fTalm=Xdat[0],fEalm=Xdat[1],fBalm=Xdat[2],
                   estimators=ests,
                   xfTalm=Xdat[0],xfEalm=Xdat[1],xfBalm=Xdat[2])
-    
 # Get input kappa alms
 ikalm = utils.change_alm_lmax(utils.get_kappa_alm(sindex).astype(np.complex128),mlmax)
 
