@@ -10,7 +10,7 @@ import pytempura
 import pickle
 
 # The estimators to test lensing for
-# ests = ['TT','mv','mvpol','EE','TE','EB','TB']
+#ests = ['TT','mv','mvpol','EE','TE','EB','TB']
 ests = ['mv']
 # ests = ['TT']
 
@@ -40,8 +40,6 @@ ucls,tcls = utils.get_theory_dicts_white_noise(beam_fwhm,noise_t)
 
 # Get normalizations
 Als = pytempura.get_norms(ests,ucls,ucls,tcls,lmin,lmax,k_ellmax=mlmax)
-
-res = {}
 
 # Filter
 Xdat = utils.isotropic_filter(alm,tcls,lmin,lmax)
