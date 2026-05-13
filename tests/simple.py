@@ -7,9 +7,10 @@ import os,sys
 import healpy as hp
 from falafel import qe,utils
 import pytempura
+import pickle
 
 # The estimators to test lensing for
-#ests = ['TT','mv','mvpol','EE','TE','EB','TB']
+# ests = ['TT','mv','mvpol','EE','TE','EB','TB']
 ests = ['mv']
 # ests = ['TT']
 
@@ -40,6 +41,8 @@ ucls,tcls = utils.get_theory_dicts_white_noise(beam_fwhm,noise_t)
 # Get normalizations
 Als = pytempura.get_norms(ests,ucls,ucls,tcls,lmin,lmax,k_ellmax=mlmax)
 
+res = {}
+
 # Filter
 Xdat = utils.isotropic_filter(alm,tcls,lmin,lmax)
 
@@ -48,7 +51,7 @@ recon = qe.qe_all(px,ucls,mlmax,
                   fTalm=Xdat[0],fEalm=Xdat[1],fBalm=Xdat[2],
                   estimators=ests,
                   xfTalm=Xdat[0],xfEalm=Xdat[1],xfBalm=Xdat[2])
-    
+
 # Get input kappa alms
 ikalm = utils.change_alm_lmax(utils.get_kappa_alm(sindex).astype(np.complex128),mlmax)
 
@@ -76,3 +79,4 @@ for est in ests:
     pl2.done(f'simple_recon_diff_{est}.png')
     pl._ax.set_ylim(1e-9,1e-5)
     pl.done(f'simple_recon_{est}.png')
+

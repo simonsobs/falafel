@@ -3,7 +3,6 @@ import numpy as np
 import healpy as hp
 import sys
 
-
 class pixelization(object):
     def __init__(self,shape=None,wcs=None,nside=None,dtype=np.float32,iter=0):
         self.dtype = dtype
@@ -87,12 +86,13 @@ def get_mlmax(alms):
         raise ValueError
     return hp.Alm.getlmax(asize)
 
-def filter_alms(alms,filt,lmin=None,lmax=None):
+def filter_alms(alms,pfilt,lmin=None,lmax=None):
     """
     Filter the alms with transfer function specified
     by filt (indexed starting at ell=0).
     """
     mlmax = get_mlmax(alms)
+    filt = pfilt.copy()
     ls = np.arange(filt.size)
     if lmax is not None:
         assert lmax<=ls.max()
@@ -146,7 +146,7 @@ def gradient_spin(px,alm,mlmax,spin):
     px = pixelization(nside=nside) # for healpix
     """
 
-    ells = np.arange(0,mlmax)
+    ells = np.arange(0,mlmax+1,dtype=float)
     if spin==0:
         fl = np.sqrt(ells*(ells+1.))
         spin_out = 1 ; comp = 0
@@ -173,7 +173,7 @@ def deflection_map_to_phi_curl_alms(px,dmap,mlmax):
     """
 
     res = px.map2alm_spin(dmap,lmax=mlmax,spin_alm=0,spin_transform=1)
-    ells = np.arange(0,mlmax)
+    ells = np.arange(0,mlmax+1,dtype=float)
     fl = np.sqrt(ells*(ells+1.))
     res = almxfl(res,fl)
     return res
@@ -208,35 +208,6 @@ def qe_spin_pol_deflection(px,X_Ealm,X_Balm,Y_Ealm,Y_Balm,mlmax):
         prod = enmap.enmap(prod,px.wcs)
     return prod/2
     
-def qe_temperature_only(px,Xalm,Yalm,mlmax):
-    """
-    px is a pixelization object, initialized like this:
-    px = pixelization(shape=shape,wcs=wcs) # for CAR
-    px = pixelization(nside=nside) # for healpix
-    """
-
-    dmap = qe_spin_temperature_deflection(px,Xalm,Yalm,mlmax)
-    return deflection_map_to_phi_curl_alms(px,dmap,mlmax)
-
-def qe_pol_only(px,X_Ealm,X_Balm,Y_Ealm,Y_Balm,mlmax):
-    """
-    px is a pixelization object, initialized like this:
-    px = pixelization(shape=shape,wcs=wcs) # for CAR
-    px = pixelization(nside=nside) # for healpix
-    """
-    dmap = qe_spin_pol_deflection(px,X_Ealm,X_Balm,Y_Ealm,Y_Balm,mlmax)
-    return deflection_map_to_phi_curl_alms(px,dmap,mlmax)
-
-def qe_mv(px,X_Talm,X_Ealm,X_Balm,Y_Talm,Y_Ealm,Y_Balm,mlmax):
-    """
-    px is a pixelization object, initialized like this:
-    px = pixelization(shape=shape,wcs=wcs) # for CAR
-    px = pixelization(nside=nside) # for healpix
-    """
-    dmap_t = qe_spin_temperature_deflection(px,X_Talm,Y_Talm,mlmax)
-    dmap_p = qe_spin_pol_deflection(px,X_Ealm,X_Balm,Y_Ealm,Y_Balm,mlmax)
-    return deflection_map_to_phi_curl_alms(px,dmap_t+dmap_p,mlmax),dmap_t,dmap_p
-
 
 def qe_all(px,response_cls_dict,mlmax,
            fTalm=None,fEalm=None,fBalm=None,
@@ -369,7 +340,7 @@ def qe_shear(px,mlmax,Talm=None,fTalm=None):
     px = pixelization(nside=nside) # for healpix
     output: curved sky shear estimator
     """
-    ells = np.arange(mlmax)
+    ells = np.arange(0,mlmax+1,dtype=float)
     #prepare temperature map
     rmapT=px.alm2map(np.stack((Talm,Talm)),spin=0,ncomp=1,mlmax=mlmax)[0]
     #find tbarf
@@ -400,7 +371,7 @@ def qe_m4(px,mlmax,Talm=None,fTalm=None):
     px = pixelization(nside=nside) # for healpix
     output: curved sky multipole=4 estimator
     """
-    ells = np.arange(mlmax)
+    ells = np.arange(0,mlmax+1,dtype=float)
     #prepare temperature map
     rmapT=px.alm2map(np.stack((Talm,Talm)),spin=0,ncomp=1,mlmax=mlmax)[0]
     #find tbarf
